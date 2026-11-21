@@ -1,0 +1,185 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Lifecycle {
+  ACTIVE
+  DEPRECATED
+  RETIRED
+  UNKNOWN
+}
+
+enum VerificationStatus {
+  VERIFIED
+  UNVERIFIED
+  CONFLICTED
+}
+
+enum ScoreDirection {
+  HIGHER
+  LOWER
+}
+
+enum Availability {
+  LISTED
+  UNAVAILABLE
+  UNKNOWN
+}
+
+model Lab {
+  id          String @id @default(cuid())
+  slug        String @unique
+  name        String
+  website     String?
+  description String?
+  families    ModelFamily[]
+}
+
+model ModelFamily {
+  id          String @id @default(cuid())
+  slug        String @unique
+  name        String
+  description String?
+  labId       String
+  lab         Lab @relation(fields: [labId], references: [id], onDelete: Restrict)
+  versions    ModelVersion[]
+
+  @@index([labId])
+}
+
+model ModelVersion {
+  id            String @id @default(cuid())
+  slug          String @unique
+  canonicalName String
+  familyId      String
+  family        ModelFamily @relation(fields: [familyId], references: [id], onDelete: Restrict)
+  releaseDate   DateTime? @db.Date
+  lifecycle     Lifecycle @default(UNKNOWN)
+  contextTokens Int?
+  modalities    Json?
+  capabilities  Json?
+  license       String?
+  openWeights   Boolean?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  offerings     Offering[]
+  results       BenchmarkResult[]
+
+  @@index([familyId, lifecycle])
+  @@index([contextTokens])
+}
+
+model Provider {
+  id        String @id @default(cuid())
+  slug      String @unique
+  name      String
+  website   String?
+  offerings Offering[]
+}
+
+model Offering {
+  id                 String @id @default(cuid())
+  providerId         String
+  modelVersionId     String
+  externalModelId    String
+  availabilityStatus Availability @default(UNKNOWN)
+  contextOverride    Int?
+  observedAt         DateTime @db.Date
+  sourceId           String
+  sourceUrl          String
+  provider           Provider @relation(fields: [providerId], references: [id], onDelete: Restrict)
+  model              ModelVersion @relation(fields: [modelVersionId], references: [id], onDelete: Restrict)
+  source             DataSource @relation(fields: [sourceId], references: [id], onDelete: Restrict)
+  prices             PriceObservation[]
+
+  @@unique([providerId, externalModelId])
+  @@index([modelVersionId])
+}
+
+model PriceObservation {
+  id               String @id @default(cuid())
+  offeringId       String
+  currency         String @db.Char(3)
+  inputPerMillion  Decimal? @db.Decimal(18, 8)
+  outputPerMillion Decimal? @db.Decimal(18, 8)
+  observedAt       DateTime @db.Date
+  sourceId         String
+  sourceUrl        String
+  offering         Offering @relation(fields: [offeringId], references: [id], onDelete: Restrict)
+  source           DataSource @relation(fields: [sourceId], references: [id], onDelete: Restrict)
+
+  @@unique([offeringId, sourceId, currency, observedAt])
+  @@index([offeringId, observedAt])
+}
+
+model Benchmark {
+  id          String @id @default(cuid())
+  slug        String @unique
+  name        String
+  category    String
+  metricName  String
+  unit        String
+  direction   ScoreDirection
+  methodology String
+  version     String?
+  sourceId    String
+  sourceUrl   String
+  source      DataSource @relation(fields: [sourceId], references: [id], onDelete: Restrict)
+  results     BenchmarkResult[]
+
+  @@index([category])
+}
+
+model BenchmarkResult {
+  id                 String @id @default(cuid())
+  benchmarkId        String
+  modelVersionId     String
+  score              Decimal @db.Decimal(18, 8)
+  evaluatedAt        DateTime? @db.Date
+  methodologyVersion String?
+  evaluationKey      String
+  verifiedStatus     VerificationStatus @default(UNVERIFIED)
+  sourceId           String
+  sourceUrl          String
+  benchmark          Benchmark @relation(fields: [benchmarkId], references: [id], onDelete: Restrict)
+  model              ModelVersion @relation(fields: [modelVersionId], references: [id], onDelete: Restrict)
+  source             DataSource @relation(fields: [sourceId], references: [id], onDelete: Restrict)
+
+  @@unique([benchmarkId, modelVersionId, sourceId, evaluationKey])
+  @@index([benchmarkId, score])
+  @@index([modelVersionId])
+}
+
+model DataSource {
+  id           String @id
+  name         String
+  homepage     String
+  sourceType   String
+  trustPolicy  String
+  observations SourceObservation[]
+  offerings    Offering[]
+  prices       PriceObservation[]
+  benchmarks   Benchmark[]
+  results      BenchmarkResult[]
+}
+
+model SourceObservation {
+  id                 String @id @default(cuid())
+  sourceId           String
+  entityType         String
+  entityId           String
+  field              String
+  sourceUrl          String
+  observedAt         DateTime @db.Date
+  verificationStatus VerificationStatus
+  rawChecksum        String?
+  source             DataSource @relation(fields: [sourceId], references: [id], onDelete: Restrict)
+
+  @@unique([sourceId, entityType, entityId, field, sourceUrl, observedAt])
+  @@index([entityType, entityId])
+}
