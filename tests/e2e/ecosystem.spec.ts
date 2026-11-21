@@ -5,9 +5,13 @@ test("keyboard navigation switches verified rankings and exposes method and limi
   await page.goto("/");
   await page.getByRole("link", { name: "Skip to content" }).press("Enter");
   await expect(page.getByRole("main")).toBeFocused();
-  await page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Rankings" }).press("Enter");
+  await page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Leaderboards" }).press("Enter");
   await expect(page.getByRole("heading", { name: "SWE-bench Verified" })).toBeVisible();
   await expect(page.getByText("2 scored · 2 without a comparable score")).toBeVisible();
+  const chart = page.getByRole("figure", { name: "Ranked scores" });
+  await expect(chart.getByRole("button", { name: /#1 GPT-4\.1 54\.6%/ })).toBeVisible();
+  await chart.getByRole("button", { name: /#1 GPT-4\.1 54\.6%/ }).press("Enter");
+  await expect(chart.getByRole("link", { name: "Benchmark result source" })).toBeVisible();
   await expect(page.getByText("Evaluation date Unknown", { exact: false })).toBeVisible();
   await expect(page.getByRole("link", { name: "OpenAI benchmark source" })).toHaveAttribute("href", /openai\.com\/index\/gpt-4-1/);
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(375);
@@ -18,10 +22,12 @@ test("keyboard navigation switches verified rankings and exposes method and limi
   await page.getByRole("combobox", { name: "Sort", exact: true }).selectOption("worst");
   await page.getByRole("button", { name: "Apply ranking filters" }).click();
   await expect(table.getByRole("row").nth(1)).toContainText("GPT-4.1 nano");
+  await expect(chart.getByRole("button").first()).toContainText("GPT-4.1 nano");
   await page.getByRole("link", { name: "Reasoning" }).click();
   await expect(page.getByRole("heading", { name: "GPQA Diamond" })).toBeVisible();
   await page.goto("/rankings?category=reasoning&provider=openrouter");
   await expect(page.getByRole("heading", { name: "No comparable scores on this page" })).toBeVisible();
+  await expect(chart.getByRole("button")).toHaveCount(0);
   await page.goto("/rankings?category=unsupported");
   await expect(page.getByRole("heading", { name: "No verified benchmark coverage" })).toBeVisible();
 

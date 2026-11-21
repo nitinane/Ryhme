@@ -5,6 +5,8 @@ import { categoryName, rankingQuery } from "@/features/benchmarks/query";
 import { rankings } from "@/features/benchmarks/service";
 import { SourceLink } from "@/features/catalog/components/source-link";
 import { date } from "@/features/catalog/presentation";
+import { BenchmarkBars } from "@/features/benchmarks/components/benchmark-bars";
+import { scoreLabel } from "@/features/benchmarks/chart-data";
 
 export const metadata: Metadata = { title: "Benchmark rankings | Ryhme" };
 
@@ -44,7 +46,11 @@ export default async function RankingsPage({ searchParams }: PageProps<"/ranking
       <p className="muted mt-2">Choose a category or benchmark with published results.</p>
       <Link className="text-link mt-2 inline-block" href="/rankings">Browse available benchmarks</Link>
     </section> : <>
-      <section className="panel mt-5" aria-labelledby="benchmark-heading">
+      <div className="ranking-insights mt-5">
+      <BenchmarkBars key={cohort.id} title="Ranked scores" metric={benchmark.metricName} unit={benchmark.unit}
+        direction={benchmark.direction} methodology={benchmark.methodology} evidenceDate={date(cohort.evaluatedAt)}
+        points={data} />
+      <section className="panel" aria-labelledby="benchmark-heading">
         <h2 id="benchmark-heading">{benchmark.name}</h2>
         <p className="mt-2">{benchmark.methodology}</p>
         <p className="muted mt-2">{benchmark.metricName} ({benchmark.unit}) · {benchmark.direction === "HIGHER" ? "Higher is better" : "Lower is better"}</p>
@@ -57,6 +63,7 @@ export default async function RankingsPage({ searchParams }: PageProps<"/ranking
           </Link>
         )}</nav>}
       </section>
+      </div>
       <p className="muted my-4" role="status">{meta.total} scored · {meta.eligible - meta.total} without a comparable score</p>
       {meta.total === 1 && <p className="muted mb-4">Only one comparable score is available for these filters.</p>}
       {data.length === 0 ? <section className="panel"><h2>No comparable scores on this page</h2>
@@ -68,7 +75,7 @@ export default async function RankingsPage({ searchParams }: PageProps<"/ranking
             <tbody>{data.map((row) => <tr key={row.slug}>
               <th scope="row">{row.rank}</th>
               <td><Link className="text-link" href={`/models/${row.slug}`}>{row.name}</Link><p className="muted text-sm">{row.labName}</p></td>
-              <td>{row.score.replace(/(\.\d*?[1-9])0+$|\.0+$/, "$1")}{benchmark.unit === "%" ? "%" : ` ${benchmark.unit}`}</td>
+              <td>{scoreLabel(row.score, benchmark.unit)}</td>
               <td><SourceLink url={row.sourceUrl}>Result source</SourceLink></td>
             </tr>)}</tbody>
           </table>

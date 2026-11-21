@@ -19,7 +19,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <SelectionProvider>
       <Navigation />
       {children}
-      <footer className="frame border-t border-slate-700 py-6 text-sm muted">Ryhme</footer>
+      <footer className="frame site-footer py-6 text-sm muted">Ryhme</footer>
     </SelectionProvider>
   </body></html>;
 }

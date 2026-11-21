@@ -83,6 +83,10 @@ test("model selection, comparison links and historical costs work on a narrow sc
   const sharedUrl = page.url();
   await page.goto(sharedUrl);
   await expect(page.getByRole("columnheader")).toHaveCount(4);
+  const scoreCost = page.getByRole("figure", { name: /score vs\. cost/ });
+  await expect(scoreCost.first()).toBeVisible();
+  await scoreCost.first().getByRole("button", { name: /GPT-4\.1 mini/ }).press("Enter");
+  await expect(scoreCost.first().getByRole("link", { name: "Historical price source" })).toBeVisible();
   await expect(page.getByRole("cell", { name: "No score reported" })).toBeVisible();
   const matrix = page.getByRole("region", { name: "Scrollable model comparison" });
   await matrix.focus();
@@ -91,9 +95,10 @@ test("model selection, comparison links and historical costs work on a narrow sc
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(375);
   await page.keyboard.press("ArrowRight");
   await expect.poll(() => matrix.evaluate((element) => element.scrollLeft)).toBeGreaterThan(0);
-  await page.getByRole("button", { name: "Estimate cost" }).click();
-  await expect(page.getByText("USD 2.80")).toBeVisible();
-  await expect(page.getByText("USD 0.56")).toBeVisible();
+  const estimator = page.getByRole("region", { name: "Token cost estimator" });
+  await estimator.getByRole("button", { name: "Estimate cost" }).click();
+  await expect(estimator.getByText("USD 2.80", { exact: true })).toBeVisible();
+  await expect(estimator.getByText("USD 0.56", { exact: true })).toBeVisible();
   await page.getByRole("link", { name: "Edit in catalog" }).click();
   await expect(page.getByRole("checkbox", { name: "Compare GPT-4.1 nano", exact: true })).toBeChecked();
   await page.getByRole("checkbox", { name: "Compare Gemma 3 27B Instruct" }).check();

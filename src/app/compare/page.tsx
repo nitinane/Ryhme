@@ -8,6 +8,9 @@ import { findComparison, type ModelDetail } from "@/features/catalog/services/mo
 import { CostCalculator } from "@/features/comparison/components/calculator";
 import { BrowseForComparison } from "@/features/comparison/components/selection";
 import { compareQuery } from "@/features/comparison/schemas/compare";
+import { BenchmarkBars } from "@/features/benchmarks/components/benchmark-bars";
+import { ScoreCostPlot } from "@/features/comparison/components/score-cost-plot";
+import { benchmarkCohortKey, benchmarkComparisons } from "@/features/comparison/benchmark-comparison";
 
 export const metadata: Metadata = { title: "Compare models | Ryhme" };
 const unknown = "Unknown";
@@ -34,7 +37,7 @@ function rows(models: ModelDetail[]): Row[] {
   const benchmarks = new Map<string, Row>();
   for (const [index, model] of models.entries()) {
     for (const result of model.results) {
-      const key = JSON.stringify([result.benchmarkId, result.sourceId, result.evaluationKey, result.methodologyVersion, result.evaluatedAt]);
+      const key = benchmarkCohortKey(result);
       const row = benchmarks.get(key) ?? {
         label: `${result.benchmark.name}${result.benchmark.version ? ` · ${result.benchmark.version}` : ""}`,
         cells: models.map(() => ({ value: "No score reported" })),
@@ -88,6 +91,7 @@ export default async function ComparePage({ searchParams }: PageProps<"/compare"
   const raw = await searchParams;
   const parsed = compareQuery.safeParse(raw);
   const models = parsed.success ? await findComparison(parsed.data.models) : null;
+  const charts = models ? benchmarkComparisons(models) : [];
 
   return (
     <main id="main-content" className="frame page">
@@ -103,6 +107,26 @@ export default async function ComparePage({ searchParams }: PageProps<"/compare"
           <p className="muted text-sm">Highlighted cells differ where values are known. Share this comparison using its page URL.</p>
           <BrowseForComparison models={models.map(({ id, name }) => ({ id, name }))} />
         </div>
+        <section aria-labelledby="performance-comparison" className="mb-6">
+          <h2 id="performance-comparison" className="mb-3">Benchmark comparison</h2>
+          {charts.length === 0 ? <p className="panel muted">Select models with scores from a shared verified evaluation to compare performance.</p>
+            : <div className="grid gap-2">{charts.map(({ key, result, points, prices }, index) => {
+              const { benchmark } = result;
+              return <details className="benchmark-disclosure" key={key} open={index === 0}>
+                <summary>{benchmark.name} <span className="muted text-sm">· {result.methodologyVersion ?? benchmark.version ?? "Version unknown"}</span></summary>
+                <div className="comparison-charts">
+                  <BenchmarkBars title="Benchmark scores" metric={benchmark.metricName} unit={benchmark.unit}
+                    direction={benchmark.direction} methodology={benchmark.methodology} evidenceDate={date(result.evaluatedAt)}
+                    points={points} missing={models.length - points.length} />
+                  {prices.map(({ key: priceKey, provider, currency, observedAt, points }) => (
+                    <ScoreCostPlot key={priceKey}
+                      title={benchmark.name} unit={benchmark.unit} provider={provider} currency={currency} observed={date(observedAt)} points={points} />
+                  ))}
+                  {prices.length === 0 && <p className="panel muted">Score-versus-cost data is unavailable for the same provider, currency, and price observation date.</p>}
+                </div>
+              </details>;
+            })}</div>}
+        </section>
         <div className="matrix-scroll" tabIndex={0} role="region" aria-label="Scrollable model comparison">
           <table className="matrix">
             <caption className="sr-only">Specifications, offerings, pricing, and benchmark scores by model</caption>

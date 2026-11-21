@@ -17,6 +17,12 @@ export function Navigation() {
   const [result, setResult] = useState<{ query: string; models: SearchResult[] | null }>();
 
   useEffect(() => {
+    try {
+      const saved = localStorage.getItem("ryhme-theme");
+      if (saved === "dark" || saved === "light") document.documentElement.dataset.theme = saved;
+    } catch {
+      // The theme can still be changed for this page when browser storage is unavailable.
+    }
     function openOnShortcut(event: KeyboardEvent) {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
@@ -56,19 +62,30 @@ export function Navigation() {
     input.current?.focus();
   }
 
+  function toggleTheme() {
+    const theme = document.documentElement.dataset.theme === "light" ? "dark" : "light";
+    document.documentElement.dataset.theme = theme;
+    try { localStorage.setItem("ryhme-theme", theme); } catch {}
+  }
+
   return (
     <header className="site-header">
       <a className="skip-link" href="#main-content">Skip to content</a>
       <nav className="frame nav" aria-label="Main navigation">
         <Link href="/" className="brand"><span className="brand-mark" aria-hidden="true">✦</span>Ryhme</Link>
         <div className="nav-actions">
-          <Link href="/models" aria-current={path.startsWith("/models") ? "page" : undefined}>Catalog</Link>
+          <Link href="/models" aria-current={path.startsWith("/models") ? "page" : undefined}>Models</Link>
           <ComparisonLink active={path === "/compare"} />
-          <Link href="/rankings" aria-current={path === "/rankings" ? "page" : undefined}>Rankings</Link>
+          <Link href="/rankings" aria-current={path === "/rankings" ? "page" : undefined}>Leaderboards</Link>
           <Link href="/labs" aria-current={path.startsWith("/labs") ? "page" : undefined}>Labs</Link>
           <Link href="/providers" aria-current={path.startsWith("/providers") ? "page" : undefined}>Providers</Link>
-          <button className="button search-trigger" type="button" onClick={open}>
+        </div>
+        <div className="nav-tools">
+          <button className="button search-trigger" type="button" onClick={open} aria-keyshortcuts="Control+K Meta+K">
             Search <kbd className="hidden sm:inline">Ctrl K</kbd>
+          </button>
+          <button className="button theme-toggle" type="button" aria-label="Toggle color theme" onClick={toggleTheme}>
+            <span className="theme-light">Light</span><span className="theme-dark">Dark</span>
           </button>
         </div>
       </nav>

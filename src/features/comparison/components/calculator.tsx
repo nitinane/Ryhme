@@ -81,7 +81,7 @@ export function CostCalculator({ models }: { models: ModelOption[] }) {
           <button type="submit" className="button primary justify-self-start">{pending ? "Calculating…" : "Estimate cost"}</button>
         </fieldset>
       </form>
-      {error && <p role="alert" className="mt-4 text-rose-200">{error}</p>}
+      {error && <p role="alert" className="mt-4 error-text">{error}</p>}
       <div aria-live="polite">
         {estimates.length > 0 && <ul className="detail-list mt-4">{estimates.map((estimate) => {
           const model = models.find(({ offerings }) => offerings.some(({ id }) => id === estimate.offeringId));
