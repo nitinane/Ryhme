@@ -20,9 +20,9 @@ test("dashboard keeps benchmark evidence and search within desktop, tablet, and 
 
   const toggle = nav.getByRole("button", { name: "Toggle color theme" });
   await toggle.press("Enter");
-  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await page.reload();
-  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await page.getByRole("searchbox", { name: "Search model catalog" }).fill("Gemma");
   await page.getByRole("button", { name: "Find models" }).click();
   await expect(page).toHaveURL(/\/models\?q=Gemma/);

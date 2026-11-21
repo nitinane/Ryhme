@@ -20,6 +20,8 @@ export function BenchmarkBars({ title, metric, unit, direction, methodology, evi
   const selected = points.find(({ slug }) => slug === selectedSlug);
   const scale = scoreScale(points, unit);
   const zero = scale.position(0);
+  const ticks = scale.min === scale.max ? [scale.min]
+    : unit === "%" && scale.min === 0 && scale.max === 100 ? [0, 25, 50, 75, 100] : [scale.min, scale.max];
 
   return <figure className="panel chart-panel" aria-labelledby={`${id}-title`}>
     <figcaption>
@@ -42,7 +44,7 @@ export function BenchmarkBars({ title, metric, unit, direction, methodology, evi
         })}
       </ul>
       <div className="chart-axis" aria-hidden="true"><div>
-        <span>{scoreLabel(String(scale.min), unit)}</span><span>{scoreLabel(String(scale.max), unit)}</span>
+        {ticks.map((tick) => <span key={tick}>{scoreLabel(String(tick), unit)}</span>)}
       </div></div>
     </>}
     {missing > 0 && <p className="muted text-sm mt-3">{missing} {missing === 1 ? "model" : "models"} without a comparable score.</p>}

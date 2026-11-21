@@ -93,13 +93,13 @@ export default async function ModelsPage({ searchParams }: PageProps<"/models">)
                 {meta.total ? "Go to first page" : "Clear filters"}
               </Link>
             </div>
-          ) : <ul className="grid gap-3">{data.map((model) => {
+          ) : <ul className="catalog-records">{data.map((model) => {
             const offer = model.offerings.find((item) =>
               (!query.provider || item.provider.slug === query.provider) && item.price?.inputPerMillion != null);
             const price = offer?.price;
             return (
-              <li className="panel model-card" key={model.id}>
-                <div className="flex flex-wrap items-start justify-between gap-3">
+              <li className="model-card catalog-record" key={model.id}>
+                <div className="catalog-record-heading">
                   <div><p className="muted text-sm">{model.family.lab.name} / {model.family.name}</p>
                     <h3 className="mt-1"><Link className="model-link" href={`/models/${model.slug}`}>{model.name}</Link></h3></div>
                   <span className="chip">{lifecycles[model.lifecycle]}</span>

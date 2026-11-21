@@ -1,11 +1,11 @@
-import Form from "next/form";
 import Link from "next/link";
 import type { Metadata } from "next";
-import { categoryName, rankingQuery } from "@/features/benchmarks/query";
+import { rankingQuery } from "@/features/benchmarks/query";
 import { rankings } from "@/features/benchmarks/service";
 import { SourceLink } from "@/features/catalog/components/source-link";
 import { date } from "@/features/catalog/presentation";
 import { BenchmarkBars } from "@/features/benchmarks/components/benchmark-bars";
+import { RankingControls, rankingFilters } from "@/features/benchmarks/components/ranking-controls";
 import { scoreLabel } from "@/features/benchmarks/chart-data";
 
 export const metadata: Metadata = { title: "Benchmark rankings | Ryhme" };
@@ -17,51 +17,41 @@ export default async function RankingsPage({ searchParams }: PageProps<"/ranking
     <p className="panel my-4" role="alert">Invalid ranking filters. <Link className="text-link" href="/rankings">Reset filters</Link></p>
   </main>;
   const query = input.data;
-  const { categories, category, benchmarks, benchmark, cohorts, cohort, providers, data, meta } = await rankings(query);
+  const results = await rankings(query);
+  const { benchmark, cohorts, cohort, data, meta } = results;
   const pageHref = (page: number) => {
     const params = new URLSearchParams(Object.entries(raw).flatMap(([key, value]) => typeof value === "string" ? [[key, value]] : []));
     params.set("page", String(page));
     return `/rankings?${params}`;
   };
-  return <main id="main-content" className="frame page">
-    <div className="page-heading"><h1>Benchmark rankings</h1><p>Compare model versions in the same published evaluation.</p></div>
-    {categories.length > 0 && <nav className="mb-5 flex flex-wrap gap-2" aria-label="Benchmark categories">
-      {categories.map((item) => <Link key={item} className={`button ${item === category ? "primary" : ""}`}
-        href={`/rankings?category=${item}`} aria-current={item === category ? "page" : undefined}>{categoryName(item)}</Link>)}
-    </nav>}
-    {benchmarks.length > 0 && <Form action="/rankings" className="panel directory-filters" key={JSON.stringify(query)}>
-      <input type="hidden" name="category" value={category} />
-      {query.limit !== 20 && <input type="hidden" name="limit" value={query.limit} />}
-      <label>Benchmark<select name="benchmark" defaultValue={benchmark?.slug ?? ""}>
-        <option value="">Default benchmark</option>
-        {benchmarks.map((option) => <option key={option.id} value={option.slug}>{option.name}</option>)}
-      </select></label>
-      <label>Provider<select name="provider" defaultValue={query.provider ?? ""}>
-        <option value="">All providers</option>{providers.map((provider) => <option key={provider.slug} value={provider.slug}>{provider.name}</option>)}
-      </select></label>
-      <label>Sort<select name="sort" defaultValue={query.sort}><option value="best">Best score first</option><option value="worst">Worst score first</option></select></label>
-      <button className="button primary" type="submit">Apply ranking filters</button>
-    </Form>}
+  return <main id="main-content" tabIndex={-1} className="frame page">
+    <header className="page-heading"><h1>Benchmark rankings</h1><p>Compare model versions in the same published evaluation.</p></header>
+    <div className="analysis-workspace">
+    <RankingControls action="/rankings" options={results} query={query} />
     {!benchmark || !cohort ? <section className="panel mt-5"><h2>No verified benchmark coverage</h2>
       <p className="muted mt-2">Choose a category or benchmark with published results.</p>
       <Link className="text-link mt-2 inline-block" href="/rankings">Browse available benchmarks</Link>
     </section> : <>
-      <div className="ranking-insights mt-5">
+      <div className="ranking-insights">
       <BenchmarkBars key={cohort.id} title="Ranked scores" metric={benchmark.metricName} unit={benchmark.unit}
         direction={benchmark.direction} methodology={benchmark.methodology} evidenceDate={date(cohort.evaluatedAt)}
         points={data} />
-      <section className="panel" aria-labelledby="benchmark-heading">
+      <section className="evidence-panel" aria-labelledby="benchmark-heading">
         <h2 id="benchmark-heading">{benchmark.name}</h2>
         <p className="mt-2">{benchmark.methodology}</p>
         <p className="muted mt-2">{benchmark.metricName} ({benchmark.unit}) · {benchmark.direction === "HIGHER" ? "Higher is better" : "Lower is better"}</p>
         <p className="muted">Evaluation date {date(cohort.evaluatedAt)} · {cohort.methodologyVersion ?? benchmark.version ?? "Methodology version unknown"}</p>
         <p className="mt-2"><SourceLink url={benchmark.sourceUrl}>{benchmark.source.name} benchmark source</SourceLink></p>
-        {cohorts.length > 1 && <nav aria-label="Evaluation cohorts" className="mt-3 flex flex-wrap gap-2">{cohorts.map((item) =>
-          <Link className="button" key={item.id} aria-current={item.id === cohort.id ? "page" : undefined}
-            href={`/rankings?${new URLSearchParams({ category: benchmark.category, benchmark: benchmark.slug, cohort: item.id, sort: query.sort, provider: query.provider ?? "" })}`}>
+        {cohorts.length > 1 && <nav aria-label="Evaluation cohorts" className="mt-3 flex flex-wrap gap-2">{cohorts.map((item) => {
+          const params = rankingFilters(query);
+          params.set("category", benchmark.category);
+          params.set("benchmark", benchmark.slug);
+          params.set("cohort", item.id);
+          return <Link className="button" key={item.id} aria-current={item.id === cohort.id ? "page" : undefined}
+            href={`/rankings?${params}`}>
             {item.methodologyVersion ?? item.evaluationKey} · {date(item.evaluatedAt)}
           </Link>
-        )}</nav>}
+        })}</nav>}
       </section>
       </div>
       <p className="muted my-4" role="status">{meta.total} scored · {meta.eligible - meta.total} without a comparable score</p>
@@ -86,5 +76,6 @@ export default async function RankingsPage({ searchParams }: PageProps<"/ranking
         {meta.hasMore && meta.page < 10_000 && <Link className="button" href={pageHref(meta.page + 1)}>Next page</Link>}
       </nav>}
     </>}
+    </div>
   </main>;
 }

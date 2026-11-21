@@ -19,6 +19,7 @@ test("keyboard navigation switches verified rankings and exposes method and limi
   await expect(page.getByRole("heading", { name: "AIME 2024" })).toBeVisible();
   const table = page.getByRole("table");
   await expect(table.getByRole("row").nth(1)).toContainText("GPT-4.1 mini");
+  await page.locator(".ranking-filter-options > summary").press("Space");
   await page.getByRole("combobox", { name: "Sort", exact: true }).selectOption("worst");
   await page.getByRole("button", { name: "Apply ranking filters" }).click();
   await expect(table.getByRole("row").nth(1)).toContainText("GPT-4.1 nano");
@@ -36,6 +37,9 @@ test("keyboard navigation switches verified rankings and exposes method and limi
   const result = await ranked.json();
   expect(result.meta).toMatchObject({ total: 2, limit: 1, hasMore: true, eligible: 4 });
   expect(result.data[0]).toMatchObject({ rank: 1, score: "54.60000000" });
+  const filtered = await request.get("/api/rankings?category=coding&lab=openai&model=gpt-4-1-mini-2025-04-14");
+  expect(filtered.status()).toBe(200);
+  expect((await filtered.json()).data).toMatchObject([{ score: "23.60000000" }]);
   const second = await request.get("/api/rankings?category=coding&limit=1&page=2");
   expect((await second.json()).data[0]).toMatchObject({ rank: 2, score: "23.60000000" });
   expect((await request.get("/api/rankings?sort=composite")).status()).toBe(400);

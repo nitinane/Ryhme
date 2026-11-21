@@ -9,13 +9,17 @@ type ScoreRow = {
 
 export async function rankings(query: RankingQuery) {
   const db = getDb();
-  const [definitions, providers] = await Promise.all([
+  const [definitions, providers, labs, models] = await Promise.all([
     db.benchmark.findMany({
       include: { source: { select: { name: true } } },
       where: { results: { some: { verifiedStatus: "VERIFIED" } } },
       orderBy: [{ category: "asc" }, { name: "asc" }, { id: "asc" }],
     }),
     db.provider.findMany({ select: { slug: true, name: true }, orderBy: { name: "asc" } }),
+    db.lab.findMany({ select: { slug: true, name: true }, orderBy: { name: "asc" } }),
+    db.modelVersion.findMany({
+      select: { slug: true, canonicalName: true }, orderBy: [{ canonicalName: "asc" }, { slug: "asc" }],
+    }),
   ]);
   const categories = [...new Set(definitions.map(({ category }) => category))];
   const requested = definitions.find(({ slug }) => slug === query.benchmark);
@@ -32,12 +36,12 @@ export async function rankings(query: RankingQuery) {
   const cohorts = groups.map(({ _min, ...group }) => ({ ...group, id: _min.id! }));
   const cohort = query.cohort ? cohorts.find(({ id }) => id === query.cohort) : cohorts[0];
   const empty = { data: [] as ScoreRow[], meta: { total: 0, eligible: 0, page: query.page, limit: query.limit, hasMore: false } };
-  const selection = { categories, category, benchmarks, benchmark, providers, cohorts, cohort };
+  const selection = { categories, category, benchmarks, benchmark, providers, labs, models, cohorts, cohort };
   if (!benchmark || !cohort) return { ...empty, ...selection };
 
   const better = scoreDirection(benchmark.direction) === "DESC" ? Prisma.sql`DESC` : Prisma.sql`ASC`;
   const display = query.sort === "worst" ? Prisma.sql`DESC` : Prisma.sql`ASC`;
-  const providerFilter = query.provider ? Prisma.sql`WHERE EXISTS (
+  const providerFilter = query.provider ? Prisma.sql`AND EXISTS (
     SELECT 1 FROM "Offering" o JOIN "Provider" p ON p.id = o."providerId"
     WHERE o."modelVersionId" = m.id AND p.slug = ${query.provider}
   )` : Prisma.empty;
@@ -45,7 +49,10 @@ export async function rankings(query: RankingQuery) {
     WITH eligible AS (
       SELECT m.id, m.slug, m."canonicalName" AS name, l.name AS "labName"
       FROM "ModelVersion" m JOIN "ModelFamily" f ON f.id = m."familyId"
-      JOIN "Lab" l ON l.id = f."labId" ${providerFilter}
+      JOIN "Lab" l ON l.id = f."labId"
+      WHERE TRUE ${providerFilter}
+        ${query.lab ? Prisma.sql`AND l.slug = ${query.lab}` : Prisma.empty}
+        ${query.model ? Prisma.sql`AND m.slug = ${query.model}` : Prisma.empty}
     ), ranked AS (
       SELECT (RANK() OVER (ORDER BY r.score ${better}))::integer AS rank, e.slug, e.name, e."labName",
         r.score::text AS score, r."sourceUrl"

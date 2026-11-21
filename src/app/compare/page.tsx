@@ -22,7 +22,7 @@ function textCell(value: string | null): Cell {
   return value === null || value === unknown ? { value: unknown } : { value, known: value };
 }
 
-function rows(models: ModelDetail[]): Row[] {
+function rows(models: ModelDetail[]): { label: string; rows: Row[] }[] {
   const simple = [
     { label: "Lab / family", cell: (m: ModelDetail) => `${m.family.lab.name} / ${m.family.name}` },
     { label: "Lifecycle", cell: (m: ModelDetail) => lifecycles[m.lifecycle] },
@@ -50,8 +50,7 @@ function rows(models: ModelDetail[]): Row[] {
       benchmarks.set(key, row);
     }
   }
-  return [
-    ...simple.map(({ label, cell }) => ({ label, cells: models.map((model) => textCell(cell(model))) })),
+  const pricing: Row[] = [
     {
       label: "Provider offerings",
       cells: models.map((model) => ({
@@ -82,8 +81,13 @@ function rows(models: ModelDetail[]): Row[] {
         };
       }),
     },
-    ...benchmarks.values(),
-    ...(benchmarks.size === 0 ? [{ label: "Benchmark evidence", cells: models.map(() => ({ value: "No score reported" })) }] : []),
+  ];
+  return [
+    { label: "Identity and capabilities", rows: simple.map(({ label, cell }) => ({ label, cells: models.map((model) => textCell(cell(model))) })) },
+    { label: "Provider offerings and prices", rows: pricing },
+    { label: "Benchmark evidence", rows: benchmarks.size > 0 ? [...benchmarks.values()] : [
+      { label: "Published scores", cells: models.map(() => ({ value: "No score reported" })) },
+    ] },
   ];
 }
 
@@ -94,7 +98,7 @@ export default async function ComparePage({ searchParams }: PageProps<"/compare"
   const charts = models ? benchmarkComparisons(models) : [];
 
   return (
-    <main id="main-content" className="frame page">
+    <main id="main-content" tabIndex={-1} className="frame page">
       <div className="page-heading"><h1>Compare models</h1><p>See specifications, provider prices, and benchmark evidence side by side.</p></div>
       {!models ? <section className="panel">
         <h2>{Object.keys(raw).length === 0 ? "Choose two to four models" : "Comparison unavailable"}</h2>
@@ -103,8 +107,12 @@ export default async function ComparePage({ searchParams }: PageProps<"/compare"
           : "Select two to four distinct model versions in the catalog to start a comparison."}</p>
         <Link className="button primary" href="/models">Browse model catalog</Link>
       </section> : <>
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-          <p className="muted text-sm">Highlighted cells differ where values are known. Share this comparison using its page URL.</p>
+        <div className="comparison-tools">
+          <nav aria-label="Comparison sections">
+            <a className="text-link" href="#performance-comparison">Performance</a>
+            <a className="text-link" href="#comparison-matrix">Specifications and prices</a>
+            {models.some(({ offerings }) => offerings.length > 0) && <a className="text-link" href="#calculator">Cost estimator</a>}
+          </nav>
           <BrowseForComparison models={models.map(({ id, name }) => ({ id, name }))} />
         </div>
         <section aria-labelledby="performance-comparison" className="mb-6">
@@ -127,20 +135,22 @@ export default async function ComparePage({ searchParams }: PageProps<"/compare"
               </details>;
             })}</div>}
         </section>
-        <div className="matrix-scroll" tabIndex={0} role="region" aria-label="Scrollable model comparison">
+        <div id="comparison-matrix" className="matrix-scroll" tabIndex={0} role="region" aria-label="Scrollable model comparison">
           <table className="matrix">
             <caption className="sr-only">Specifications, offerings, pricing, and benchmark scores by model</caption>
             <thead><tr><th scope="col">Attribute</th>{models.map((model) => (
               <th scope="col" key={model.id}><Link className="text-link" href={`/models/${model.slug}`}>{model.name}</Link></th>
             ))}</tr></thead>
-            <tbody>{rows(models).map((row, index) => {
+            {rows(models).map((section) => <tbody key={section.label}>
+            <tr className="matrix-section"><td colSpan={models.length + 1}>{section.label}</td></tr>
+            {section.rows.map((row, index) => {
               const different = new Set(row.cells.flatMap(({ known }) => known === undefined ? [] : [known])).size > 1;
               return <tr key={index}><th scope="row">{row.label}</th>{row.cells.map((cell, column) => (
                 <td className={different && cell.known !== undefined ? "difference" : undefined} key={models[column].id}>
                   {cell.value}{different && cell.known !== undefined && <span className="sr-only"> (differs across models)</span>}
                 </td>
               ))}</tr>;
-            })}</tbody>
+            })}</tbody>)}
           </table>
         </div>
         {models.some(({ offerings }) => offerings.length > 0) && <CostCalculator key={models.map(({ id }) => id).join(",")} models={models.map((model) => ({
