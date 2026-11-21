@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
+import { parseGemma3Card } from "../src/ingestion/gemma3-card";
 import { parseBfcl } from "../src/ingestion/bfcl";
 import { ingestBenchmarkFeed, type BenchmarkFeed } from "../src/ingestion/benchmark-feed";
 import { evaluationOriginLabel, rankingCategories } from "../src/features/benchmarks/categories";
@@ -33,6 +34,32 @@ it("registers ten categories and distinguishes score direction and evaluation or
   expect(scoreDirection("LOWER")).toBe("ASC");
   expect(evaluationOriginLabel.PUBLISHER).toBe("Publisher-reported evaluation");
   expect(evaluationOriginLabel.INDEPENDENT).toBe("Independent evaluation");
+});
+
+const card = [
+  "##### STEM and code",
+  "| Benchmark | n-shot | Gemma 3 IT 1B | Gemma 3 IT 4B | Gemma 3 IT 12B | Gemma 3 IT 27B |",
+  "|---|---|---|---|---|---|",
+  "| [MMLU](https://example.test/mmlu) (Pro) | 0-shot | 14.7 | 43.6 | N/A | 67.5 |",
+  "",
+  "| Benchmark | n-shot | Gemma 3 PT 4B | Gemma 3 PT 12B | Gemma 3 PT 27B |",
+  "|---|---|---|---|---|",
+  "| [MMLU](https://example.test/mmlu) (Pro) | 5-shot | 29.2 | 45.3 | 52.2 |",
+  "##### Multimodal",
+  "| Benchmark | Gemma 3 IT 4B | Gemma 3 IT 12B | Gemma 3 IT 27B |",
+  "|---|---|---|---|",
+  "| [MMMU](https://example.test/mmmu) (val) | 48.8 | 59.6 | 64.9 |",
+].join("\n");
+
+it("selects only the pinned instruction-tuned format and leaves missing scores and dates unknown", () => {
+  const feed = parseGemma3Card(card);
+  expect(feed.benchmarks.map(row => row.category)).toEqual(["vision-multimodal", "general-knowledge"]);
+  expect(feed.evidence).toHaveLength(6);
+  expect(feed.evidence.every(row => row.evaluatedAt === null && row.publishedAt === null && row.evaluationOrigin === "PUBLISHER")).toBe(true);
+  expect(feed.evidence.filter(row => row.modelSlug === "gemma-3-27b-it").map(row => row.score)).toEqual(["64.9", "67.5"]);
+  expect(feed.evidence.some(row => row.score === "52.2" || row.score === "0")).toBe(false);
+  expect(() => parseGemma3Card(card.replace("0-shot", "5-shot"))).toThrow("evaluation configuration");
+  expect(() => parseGemma3Card(card.replaceAll("Gemma 3 IT 12B", "Gemma 3 PT 12B"))).toThrow("checkpoint columns");
 });
 
 const testUrl = process.env.BENCHMARK_TEST_DATABASE_URL;
@@ -79,10 +106,16 @@ describe.skipIf(!testUrl)("benchmark ingestion with disposable PostgreSQL", () =
     await expect(ingest(changed)).rejects.toThrow("conflicts with immutable");
     const config = { ...fixture, evidence: [{ ...fixture.evidence[0], evaluationConfig: "changed settings" }, fixture.evidence[1]] };
     await expect(ingest(config)).rejects.toThrow("Incompatible evaluation settings");
-    const history = { ...fixture, evidence: [{ ...fixture.evidence[0], evaluationKey: "m6-test-run-2",
-      methodologyVersion: "test v2", publishedAt: "2025-05-31", score: "0.9" }] };
-    expect(await ingest(history)).toMatchObject({ newResults: 1 });
-    expect(await db.benchmarkResult.count({ where: { sourceId: fixture.source.id } })).toBe(4);
+    const incompatibleDates = { ...fixture, evidence: [
+      { ...fixture.evidence[0], evaluationKey: "m7-split", evaluatedAt: "2025-05-01" },
+      { ...fixture.evidence[1], evaluationKey: "m7-split", evaluatedAt: "2025-05-02" },
+    ] };
+    expect(await ingest(incompatibleDates)).toMatchObject({ newResults: 0, insufficientResults: 2 });
+    const history = { ...fixture, evidence: fixture.evidence.slice(0, 2).map(row => ({
+      ...row, evaluationKey: "m6-test-run-2", methodologyVersion: "test v2", publishedAt: "2025-05-31", score: "0.9",
+    })) };
+    expect(await ingest(history)).toMatchObject({ newResults: 2 });
+    expect(await db.benchmarkResult.count({ where: { sourceId: fixture.source.id } })).toBe(5);
     expect(await db.benchmarkResult.count({ where: { sourceId: "openai", evaluationOrigin: "PUBLISHER" } })).toBe(8);
   });
 });

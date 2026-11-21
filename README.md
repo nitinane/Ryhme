@@ -63,6 +63,20 @@ The adapter reads two aggregate columns from the [March 17, 2025 BFCL V3 archive
 
 The existing GPT-4.1 launch results are publisher-reported. Hugging Face leaderboard entries require checks of the individual artifact, evaluation settings, model revision, and redistribution terms before addition. Empty categories remain visible until they have comparable evidence. Overall intelligence is not computed.
 
+#### M7 benchmark coverage audit
+
+Run `npm run db:ingest:gemma3` for a read-only preview or pass `-- --apply` to import into the configured loopback database. The importer requires at least two exact catalog matches per benchmark, evaluation identity, and evaluation date. Missing dates can share a cohort only when the source adapter identifies a common evaluation.
+
+| Category | Reviewed evidence | Decision |
+| --- | --- | --- |
+| Vision and multimodal | [Gemma 3 model card](https://github.com/google-gemma/docs/blob/9db9d497e046d34c68925f80a0672b3d1fe690dd/docs/models/gemma-3/index.md#multimodal), [MMMU-Pro paper](https://arxiv.org/html/2409.02813v2) | Import original MMMU validation accuracy for the Gemma 3 IT 4B, 12B, and 27B cohort. MMMU-Pro uses different task settings and stays separate. |
+| General knowledge | [Gemma 3 model card](https://github.com/google-gemma/docs/blob/9db9d497e046d34c68925f80a0672b3d1fe690dd/docs/models/gemma-3/index.md#stem-and-code), [MMLU-Pro repository](https://github.com/TIGER-AI-Lab/MMLU-Pro/tree/f418b116db00b065c2aea046518d8fcf74d39872) | Import reported zero-shot IT MMLU-Pro accuracy. The upstream archives reviewed contain per-question predictions; their scores are outside this cohort. |
+| Creative writing | [EQ-Bench Creative Writing V3](https://github.com/EQ-bench/creative-writing-bench) | Leave empty. The published leaderboard and archives need further review of revision-specific model identities, judging settings, and redistribution terms. |
+| Speed and latency | [OpenBenchmarks inference results](https://github.com/openbenchmarks-labs/inference), [Microsoft isolation study](https://arxiv.org/abs/2610.09778) | Leave empty. The provider study compares one checkpoint across providers; the fixed-stack study needs a verified mapping for its hardware, runtime, and model artifacts. |
+| Cost efficiency | [OpenRouter pricing](https://openrouter.ai/pricing) | Leave empty. Gateway prices are price observations. A comparable efficiency score needs an evaluated workload and a consistent quality and cost measurement. |
+
+The [pinned model card license](https://github.com/google-gemma/docs/blob/9db9d497e046d34c68925f80a0672b3d1fe690dd/LICENSE) is Apache 2.0. Its two imported tables are publisher-reported and provide no individual evaluation dates. The MMMU shot count and dataset artifact revisions are unreported. The source link records the immutable documentation revision.
+
 ### Activate scheduled catalog sync
 
 The local workflow is gated by `RYHME_CATALOG_SYNC_ENABLED` and runs at 00:17, 06:17, 12:17, and 18:17 UTC. It also supports manual dispatch from `main` on `nitinane/Ryhme`. A workflow concurrency group and a PostgreSQL transaction lock prevent overlapping writes. The run stores last-seen observations and the last successful sync time. A catalog-managed listing must remain missing for at least 24 hours across usable snapshots before becoming unavailable. Large drops, duplicate identifiers, or identity conflicts suspend absence-based changes. Reappearing listings are restored. Missing price components retain their most recent known value when another component changes. The price history records gateway text-token rates and excludes other charges.

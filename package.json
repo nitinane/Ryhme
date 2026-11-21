@@ -20,7 +20,8 @@
     "db:seed": "prisma generate && prisma db seed",
     "db:ingest:openrouter": "prisma generate && tsx scripts/ingest-openrouter.ts",
     "db:sync:openrouter": "prisma generate && tsx scripts/sync-openrouter-catalog.ts",
-    "db:ingest:bfcl": "prisma generate && tsx scripts/ingest-bfcl.ts"
+    "db:ingest:bfcl": "prisma generate && tsx scripts/ingest-benchmarks.ts bfcl",
+    "db:ingest:gemma3": "prisma generate && tsx scripts/ingest-benchmarks.ts gemma3"
   },
   "dependencies": {
     "@next/env": "^16.4.6",

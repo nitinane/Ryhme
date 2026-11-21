@@ -59,14 +59,13 @@ export async function ingestBenchmarkFeed(tx: Prisma.TransactionClient, input: B
       throw new Error("Conflicting benchmark definition. Use a distinct versioned identity.");
     }
   }
-  const candidates = evidence.flatMap((row) => {
+  const matched = evidence.flatMap((row) => {
     const modelVersionId = row.modelSlug && modelIds.get(row.modelSlug);
     return modelVersionId ? [{ row, modelVersionId }] : [];
   });
-  const required = benchmarks.filter((definition) => candidates.some(({ row }) => row.benchmarkSlug === definition.slug));
   const duplicate = new Set<string>();
   const cohorts = new Map<string, string>();
-  for (const { row, modelVersionId } of candidates) {
+  for (const { row, modelVersionId } of matched) {
     const key = keyFor({ benchmarkId: row.benchmarkSlug, modelVersionId, evaluationKey: row.evaluationKey });
     if (duplicate.has(key)) throw new Error("Duplicate evaluated model within a benchmark cohort.");
     duplicate.add(key);
@@ -76,9 +75,19 @@ export async function ingestBenchmarkFeed(tx: Prisma.TransactionClient, input: B
     cohorts.set(cohort, settings);
   }
 
+  const comparisonKey = (row: BenchmarkFeed["evidence"][number]) =>
+    JSON.stringify([row.benchmarkSlug, row.evaluationKey, row.evaluatedAt]);
+  const cohortCounts = new Map<string, number>();
+  for (const { row } of matched) {
+    const key = comparisonKey(row);
+    cohortCounts.set(key, (cohortCounts.get(key) ?? 0) + 1);
+  }
+  const candidates = matched.filter(({ row }) => cohortCounts.get(comparisonKey(row))! >= 2);
+  const required = benchmarks.filter((definition) => candidates.some(({ row }) => row.benchmarkSlug === definition.slug));
+
   const benchmarkIds = new Map(existingDefinitions.map(({ slug, id }) => [slug, id]));
   const previous = await tx.benchmarkResult.findMany({
-    where: { sourceId: source.id, benchmarkId: { in: [...benchmarkIds.values()] }, evaluationKey: { in: [...new Set(candidates.map(({ row }) => row.evaluationKey))] } },
+    where: { sourceId: source.id, benchmarkId: { in: [...benchmarkIds.values()] }, evaluationKey: { in: [...new Set(matched.map(({ row }) => row.evaluationKey))] } },
   });
   for (const result of previous) {
     const slug = existingDefinitions.find(({ id }) => id === result.benchmarkId)!.slug;
@@ -88,7 +97,7 @@ export async function ingestBenchmarkFeed(tx: Prisma.TransactionClient, input: B
     }
   }
   const prior = new Map(previous.map((row) => [keyFor(row), row]));
-  const additions = candidates.filter(({ row, modelVersionId }) => {
+  const validatedAdditions = matched.filter(({ row, modelVersionId }) => {
     const benchmarkId = benchmarkIds.get(row.benchmarkSlug);
     const existing = benchmarkId && prior.get(keyFor({ benchmarkId, modelVersionId, evaluationKey: row.evaluationKey }));
     if (!existing) return true;
@@ -98,9 +107,10 @@ export async function ingestBenchmarkFeed(tx: Prisma.TransactionClient, input: B
     }
     return false;
   });
+  const additions = validatedAdditions.filter(({ row }) => cohortCounts.get(comparisonKey(row))! >= 2);
   const stats = {
     source: source.name, matchedModels: new Set(candidates.map(({ modelVersionId }) => modelVersionId)).size,
-    unknownResults: evidence.length - candidates.length, newResults: additions.length,
+    unknownResults: evidence.length - matched.length, insufficientResults: matched.length - candidates.length, newResults: additions.length,
     existingResults: candidates.length - additions.length,
     newBenchmarks: required.filter(({ slug }) => !benchmarkIds.has(slug)).length,
   };
