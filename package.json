@@ -18,7 +18,8 @@
     "db:verify:neon": "tsx scripts/verify-neon-development.ts",
     "db:migrate": "prisma migrate deploy",
     "db:seed": "prisma generate && prisma db seed",
-    "db:ingest:openrouter": "prisma generate && tsx scripts/ingest-openrouter.ts"
+    "db:ingest:openrouter": "prisma generate && tsx scripts/ingest-openrouter.ts",
+    "db:sync:openrouter": "prisma generate && tsx scripts/sync-openrouter-catalog.ts"
   },
   "dependencies": {
     "@next/env": "^16.4.6",

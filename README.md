@@ -51,6 +51,11 @@ Open `/rankings` to browse SWE-bench Verified, GPQA Diamond, and AIME 2024. Resu
 
 For an opt-in refresh of the OpenRouter listing, configure the seeded development database and run `npm run db:ingest:openrouter`. It makes one unauthenticated metadata GET with an eight-second timeout. It checks the exact allowlisted model ID and only updates a matching positive listing observation. OpenRouter routes can quote different prices. The gateway-level cost remains unknown. App startup, build, tests, and seeding use the checked-in snapshot.
 
+For broad catalog sync, run `npm run db:sync:openrouter` to preview against the verified Neon development branch in a read-only transaction. Only after approval, run `npm run db:sync:openrouter -- --apply <preview-hash>`. The hash binds the exact UTC observation day, rows, conflicts, and planned writes. A changed plan requires a new preview. Sync uses a serializable transaction and the existing schema.
+
+The importer uses the [OpenRouter public catalog](https://openrouter.ai/docs/api_reference/models) across output modalities. It deduplicates checkpoints by canonical slug, preserves each routable offering ID, and reuses exact reviewed seed identities. Author namespaces and conservative family mappings provide grouping when creator metadata has not been independently verified. Imported model metadata is an initial source observation. Listing freshness and daily base USD text-token prices are tracked separately. Non-token prices, lifecycle, release dates, licensing, and benchmarks are left unknown. Missing listings and conflicting identity mappings leave existing data intact. Review [OpenRouter terms](https://openrouter.ai/terms) before public redistribution.
+
+
 ## Engineering documents
 - `01_PRD.md`: product outcomes and scope
 - `02_TRD.md`: system design and performance
