@@ -1,0 +1,130 @@
+import { expect, test } from "@playwright/test";
+
+const primary = "/models/gpt-4-1-2025-04-14";
+const mini = "/models/gpt-4-1-mini-2025-04-14";
+const nano = "/models/gpt-4-1-nano-2025-04-14";
+
+test("catalog search, filters, stable pagination, and URL restore query PostgreSQL", async ({ page }) => {
+  await page.goto("/models?q=GPT-4.1&limit=1");
+  await expect(page.getByRole("status")).toHaveText("3 results");
+  await expect(page.getByRole("link", { name: "GPT-4.1", exact: true })).toBeVisible();
+  await page.getByRole("link", { name: "Next page" }).click();
+  await expect(page).toHaveURL(/page=2/);
+  await expect(page.getByRole("link", { name: "GPT-4.1 mini", exact: true })).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole("searchbox", { name: "Model name" })).toHaveValue("GPT-4.1");
+
+  await page.getByRole("combobox", { name: "Family", exact: true }).selectOption("gpt-4-1");
+  await page.getByRole("combobox", { name: "Provider", exact: true }).selectOption("openai-api");
+  await page.getByRole("combobox", { name: "Capability", exact: true }).selectOption("structured-outputs");
+  await page.getByRole("combobox", { name: "Lifecycle", exact: true }).selectOption("DEPRECATED");
+  await page.getByLabel("Minimum context (tokens)").fill("1000000");
+  await page.getByLabel("Max observed input price (USD / 1M tokens)").fill("0.50");
+  await page.getByRole("combobox", { name: "Sort", exact: true }).selectOption("price");
+  await page.getByRole("button", { name: "Apply filters" }).click();
+  await expect(page).toHaveURL(/maxInputPrice=0.50/);
+  await expect(page.getByRole("status")).toHaveText("1 result");
+  await expect(page.getByRole("link", { name: "GPT-4.1 mini", exact: true })).toHaveAttribute("href", mini);
+  await page.goto("/models?openWeights=true");
+  await expect(page.getByRole("heading", { name: "No matching models" })).toBeVisible();
+  await page.goto("/models?page=99");
+  await expect(page.getByRole("link", { name: "Go to first page" })).toBeVisible();
+  await page.goto("/models?limit=0");
+  await expect(page.getByRole("alert").filter({ hasText: "The search parameters are invalid" })).toBeVisible();
+});
+
+test("global keyboard search opens, restores focus, and navigates to sourced model details", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto("/");
+  const searchButton = page.getByRole("button", { name: /Search/ });
+  await searchButton.focus();
+  await page.keyboard.press("Control+k");
+  const dialog = page.getByRole("dialog", { name: "Search models" });
+  await expect(dialog.getByRole("searchbox")).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await expect(searchButton).toBeFocused();
+  await page.keyboard.press("Control+k");
+  await dialog.getByRole("searchbox").fill("gpt 4.1 nano");
+  await dialog.getByRole("link", { name: "GPT-4.1 nano" }).click();
+  await expect(page).toHaveURL(nano);
+  await expect(page.getByRole("heading", { name: "GPT-4.1 nano", exact: true })).toBeVisible();
+  await expect(page.getByText("Historical pricing · USD per 1M tokens")).toBeVisible();
+  await expect(page.getByText("Unavailable", { exact: true })).toBeVisible();
+  await expect(page.getByText("No benchmark scores reported for this version.")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Offering source" })).toHaveAttribute("href", /developers\.openai\.com/);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(375);
+  await page.getByRole("link", { name: "GPT-4.1", exact: true }).click();
+  await expect(page).toHaveURL(primary);
+  await expect(page.getByText("54.6%")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Sources and freshness" })).toBeVisible();
+  await page.goto("/models/does-not-exist");
+  await expect(page.getByRole("heading", { name: "Model not found" })).toBeVisible();
+});
+
+test("model selection, comparison links and historical costs work on a narrow screen", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto("/models?limit=2");
+  await expect(page.getByRole("searchbox", { name: "Model name" })).toBeHidden();
+  const filterDisclosure = page.locator("details.filter-panel > summary");
+  await expect(filterDisclosure).toBeVisible();
+  await filterDisclosure.press("Space");
+  await expect(page.getByRole("searchbox", { name: "Model name" })).toBeVisible();
+  await filterDisclosure.press("Space");
+  await page.getByRole("checkbox", { name: "Compare GPT-4.1", exact: true }).check();
+  await expect(page.getByRole("button", { name: "Compare selected" })).toBeDisabled();
+  await page.getByRole("checkbox", { name: "Compare GPT-4.1 mini", exact: true }).check();
+  await page.getByRole("link", { name: "Next page" }).click();
+  await page.getByRole("checkbox", { name: "Compare GPT-4.1 nano", exact: true }).check();
+  await page.getByRole("link", { name: "Compare selected" }).click();
+  await expect(page).toHaveURL(/\/compare\?models=/);
+  const sharedUrl = page.url();
+  await page.goto(sharedUrl);
+  await expect(page.getByRole("columnheader")).toHaveCount(4);
+  await expect(page.getByRole("cell", { name: "No score reported" })).toBeVisible();
+  const matrix = page.getByRole("region", { name: "Scrollable model comparison" });
+  await matrix.focus();
+  await expect(matrix).toBeFocused();
+  expect(await matrix.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(375);
+  await page.keyboard.press("ArrowRight");
+  await expect.poll(() => matrix.evaluate((element) => element.scrollLeft)).toBeGreaterThan(0);
+  await page.getByRole("button", { name: "Estimate cost" }).click();
+  await expect(page.getByText("USD 2.80")).toBeVisible();
+  await expect(page.getByText("USD 0.56")).toBeVisible();
+  await page.getByRole("link", { name: "Edit in catalog" }).click();
+  await expect(page.getByRole("checkbox", { name: "Compare GPT-4.1 nano", exact: true })).toBeChecked();
+});
+
+test("catalog and comparison APIs return bounded results and validation envelopes", async ({ request }) => {
+  const list = await request.get("/api/models?sort=price");
+  expect(list.status()).toBe(200);
+  const { data: models, meta } = await list.json();
+  expect(meta).toEqual({ page: 1, limit: 20, total: 3, hasMore: false });
+  expect(models.map(({ slug }: { slug: string }) => slug)).toEqual([mini.split("/").pop(), primary.split("/").pop(), nano.split("/").pop()]);
+  expect((await request.get("/api/models?limit=101")).status()).toBe(400);
+  const context = await request.get("/api/models?minContext=2000000");
+  expect(context.status()).toBe(200);
+  expect((await context.json()).meta.total).toBe(0);
+  const whitespace = await request.get("/api/models?q=GPT%204%201");
+  expect((await whitespace.json()).meta.total).toBe(3);
+  expect((await request.get("/api/models/does-not-exist")).status()).toBe(404);
+  const detail = await request.get(`/api${mini}`);
+  expect(detail.status()).toBe(200);
+  const { data: model } = await detail.json();
+  expect(model.results[0].score).toBe("23.6");
+
+  const id = models[0].id;
+  expect((await request.get(`/api/compare?modelId=${id}&modelId=${id}`)).status()).toBe(400);
+  expect((await request.get(`/api/compare?modelId=${id}&modelId=missing`)).status()).toBe(404);
+  const comparison = await request.get(`/api/compare?modelId=${models[1].id}&modelId=${id}`);
+  expect((await comparison.json()).data.map((row: { id: string }) => row.id)).toEqual([models[1].id, id]);
+
+  const offeringIds = [model.offerings[0].id];
+  const estimate = await request.post("/api/compare/cost", { data: { offeringIds, inputTokens: 1, outputTokens: 1 } });
+  expect(estimate.status()).toBe(200);
+  expect((await estimate.json()).data[0]).toMatchObject({ amount: "0.000002", currency: "USD", historical: true });
+  expect((await request.post("/api/compare/cost", { data: { offeringIds, inputTokens: -1, outputTokens: 0 } })).status()).toBe(400);
+  expect((await request.post("/api/compare/cost", { data: { offeringIds: ["missing"], inputTokens: 0, outputTokens: 0 } })).status()).toBe(404);
+  expect((await request.post("/api/compare/cost", { headers: { "Content-Type": "application/json" }, data: " ".repeat(2050) })).status()).toBe(400);
+});

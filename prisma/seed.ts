@@ -1,3 +1,4 @@
+import { Prisma } from "../src/generated/prisma/client";
 import { getDb } from "../src/lib/db/client";
 import { docsObservedAt, launchDate, launchUrl, models } from "./catalog-data";
 
@@ -49,16 +50,21 @@ async function seed() {
       ].map((entity) => ({ ...entity, sourceUrl: launchUrl, observedAt: launchDate }));
 
       for (const entry of models) {
+        const capabilities = ["tool-calling", "structured-outputs"];
         const { slug, canonicalName, externalModelId, contextTokens, lifecycle, sourceUrl, inputPerMillion, outputPerMillion, sweBenchScore } = entry;
         const model = await tx.modelVersion.upsert({
           where: { slug },
           update: {},
           create: {
             slug, canonicalName, familyId: family.id, releaseDate: launchDate, contextTokens, lifecycle,
-            modalities: { input: ["text", "image"], output: ["text"] },
+            modalities: { input: ["text", "image"], output: ["text"] }, capabilities,
           },
         });
-        for (const field of ["canonicalName", "releaseDate", "contextTokens", "modalities", "lifecycle"]) {
+        await tx.modelVersion.updateMany({
+          where: { id: model.id, capabilities: { equals: Prisma.DbNull } },
+          data: { capabilities },
+        });
+        for (const field of ["canonicalName", "releaseDate", "contextTokens", "modalities", "lifecycle", "capabilities"]) {
           const launchFact = field === "releaseDate" || field === "canonicalName";
           observations.push({
             entityType: "ModelVersion", entityId: model.id, field,

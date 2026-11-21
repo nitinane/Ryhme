@@ -12,7 +12,7 @@
 ## Chosen architecture
 Next.js App Router + React + TypeScript + Tailwind; Next.js route handlers and server components; Prisma + Neon PostgreSQL; Auth.js Google OAuth; Groq for advisor, query interpretation and optional playground; OpenRouter + Hugging Face + official documentation + curated sourced benchmarks; GitHub Actions + Vercel. Modular monolith, no Redis, microservices, or separate search infrastructure.
 
-## Run the M0 foundation
+## Run OneAtlas locally
 
 Use Node.js 24, npm, and an isolated PostgreSQL development database (Neon for hosted development). Run the commands from this directory.
 
@@ -34,6 +34,14 @@ Open `http://localhost:3000`. The homepage reads the catalog size from PostgreSQ
 The seed contains three GPT-4.1 snapshots with [publisher-reported launch prices and benchmark results](https://openai.com/index/gpt-4-1/). Provider listings are dated documentation observations. Repeated seeding preserves existing records and historical observations.
 
 Run `npm run lint`, `npm run typecheck`, `npm test`, and `npm run build`. For integration and mobile smoke, use a fresh development database, run the migration and seed twice, run `npm exec -- tsx tests/seed-check.ts` after each seed, then run `npm exec -- playwright install chromium` and `npm run test:e2e` after the build. GitHub Actions runs the same checks against disposable PostgreSQL. Vercel can use its Next.js preset and `npm run build`; apply reviewed migrations as a separate controlled step.
+
+## Catalog and comparison
+
+Open `/models` or press Ctrl+K (Cmd+K on macOS). PostgreSQL indexes support model-name and slug term search and structured filters. The catalog URL preserves filters, sort, and page. For example, `/models?q=GPT-4.1&capability=tool-calling&sort=context&limit=1`.
+
+Select two to four models in the catalog or on their detail pages. The comparison URL stores the ordered model IDs. Prices are historical observations. The USD price filter and sort use the lowest latest observed input rate among documented listed offerings, scoped to the selected provider when applicable. Retired offerings remain visible as historical records. The estimator uses an individual offering’s latest recorded price and labels the date and currency.
+
+The public JSON endpoints are `GET /api/models`, `GET /api/models/:slug`, `GET /api/compare?modelId=...&modelId=...`, and `POST /api/compare/cost`. The cost body contains `offeringIds`, `inputTokens`, and `outputTokens`. Numeric amounts are decimal strings and missing amounts are `null`.
 
 ## Engineering documents
 - `01_PRD.md`: product outcomes and scope

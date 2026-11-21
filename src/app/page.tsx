@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import Link from "next/link";
 import { catalogCount } from "@/features/catalog/services/count";
 
 export const dynamic = "force-dynamic";
@@ -22,13 +23,13 @@ async function CatalogStatus() {
 
 export default function Home() {
   return (
-    <main className="mx-auto flex min-h-dvh max-w-4xl flex-col justify-center px-6 py-16 sm:px-12">
-      <p className="mb-6 font-semibold text-cyan-300">OneAtlas</p>
-      <h1 className="max-w-2xl text-4xl font-semibold tracking-tight sm:text-6xl">Find the right AI model</h1>
-      <p className="mt-5 max-w-lg text-lg leading-relaxed text-slate-300">
+    <main id="main-content" className="frame home">
+      <h1>Find the right AI model</h1>
+      <p className="mt-5 max-w-lg text-lg leading-relaxed muted">
         Explore model specifications, benchmark results, and provider options with sources you can inspect.
       </p>
-      <section aria-labelledby="catalog-status" className="mt-10 min-h-32 rounded-xl border border-slate-700 bg-slate-900 p-5">
+      <div className="mt-7"><Link className="button primary" href="/models">Browse model catalog</Link></div>
+      <section aria-labelledby="catalog-status" className="panel mt-10 min-h-32 max-w-lg">
         <h2 id="catalog-status" className="mb-3 font-medium">Catalog status</h2>
         <Suspense fallback={<p role="status">Checking the catalog…</p>}>
           <CatalogStatus />

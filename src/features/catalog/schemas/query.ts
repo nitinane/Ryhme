@@ -1,0 +1,41 @@
+import { z } from "zod";
+
+export const slug = z.string().max(120).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
+export const capabilities = {
+  "tool-calling": "Tool calling",
+  "structured-outputs": "Structured outputs",
+} as const;
+export const lifecycles = {
+  ACTIVE: "Active", DEPRECATED: "Deprecated", RETIRED: "Retired", UNKNOWN: "Unknown",
+} as const;
+
+const blank = (value: unknown) => value === "" ? undefined : value;
+const integer = z.string().regex(/^\d{1,10}$/).transform(Number);
+
+export const catalogQuery = z.strictObject({
+  q: z.string().trim().max(120).optional(),
+  family: z.preprocess(blank, slug.optional()),
+  lab: z.preprocess(blank, slug.optional()),
+  provider: z.preprocess(blank, slug.optional()),
+  capability: z.preprocess(blank, z.enum(["tool-calling", "structured-outputs"]).optional()),
+  modality: z.preprocess(blank, z.enum(["text", "image", "audio", "video"]).optional()),
+  openWeights: z.preprocess(blank, z.enum(["true", "false"]).transform((value) => value === "true").optional()),
+  license: z.preprocess(blank, z.string().max(100).optional()),
+  lifecycle: z.preprocess(blank, z.enum(["ACTIVE", "DEPRECATED", "RETIRED", "UNKNOWN"]).optional()),
+  minContext: z.preprocess(blank, integer.pipe(z.number().max(2_147_483_647)).optional()),
+  maxInputPrice: z.preprocess(blank, z.string().regex(/^\d{1,8}(?:\.\d{1,8})?$/).optional()),
+  sort: z.enum(["name", "release", "context", "price"]).default("name"),
+  page: integer.pipe(z.number().min(1).max(10_000)).default(1),
+  limit: integer.pipe(z.number().min(1).max(100)).default(20),
+});
+
+export type CatalogQuery = z.output<typeof catalogQuery>;
+
+export function queryObject(params: URLSearchParams) {
+  const entries = new Map<string, string | string[]>();
+  for (const [key, value] of params) {
+    const previous = entries.get(key);
+    entries.set(key, previous === undefined ? value : Array.isArray(previous) ? [...previous, value] : [previous, value]);
+  }
+  return Object.fromEntries(entries);
+}

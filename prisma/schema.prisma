@@ -72,6 +72,11 @@ model ModelVersion {
 
   @@index([familyId, lifecycle])
   @@index([contextTokens])
+  @@index([lifecycle])
+  @@index([openWeights])
+  @@index([license])
+  @@index([capabilities(ops: JsonbPathOps)], type: Gin)
+  @@index([modalities(ops: JsonbPathOps)], type: Gin)
 }
 
 model Provider {
@@ -99,6 +104,7 @@ model Offering {
 
   @@unique([providerId, externalModelId])
   @@index([modelVersionId])
+  @@index([providerId, modelVersionId], map: "Offering_provider_model_idx")
 }
 
 model PriceObservation {
@@ -115,6 +121,7 @@ model PriceObservation {
 
   @@unique([offeringId, sourceId, currency, observedAt])
   @@index([offeringId, observedAt])
+  @@index([offeringId, currency, observedAt(sort: Desc), id(sort: Desc)], map: "PriceObservation_latest_currency_idx")
 }
 
 model Benchmark {

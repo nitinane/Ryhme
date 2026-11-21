@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { Navigation } from "@/components/navigation";
+import { SelectionProvider } from "@/features/comparison/components/selection";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -8,5 +10,7 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
-  return <html lang="en"><body>{children}</body></html>;
+  return <html lang="en"><body>
+    <SelectionProvider><Navigation />{children}</SelectionProvider>
+  </body></html>;
 }
