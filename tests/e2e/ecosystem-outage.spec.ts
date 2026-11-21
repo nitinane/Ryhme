@@ -27,7 +27,7 @@ test("ecosystem pages and APIs handle an unreachable PostgreSQL connection", asy
   const port = "3101";
   const base = `http://127.0.0.1:${port}`;
   const server = spawn(process.execPath, ["node_modules/next/dist/bin/next", "start", "--hostname", "127.0.0.1", "--port", port], {
-    env: { ...process.env, DATABASE_URL: "postgresql://unavailable@127.0.0.1:1/oneatlas" },
+    env: { ...process.env, DATABASE_URL: "postgresql://unavailable@127.0.0.1:1/ryhme" },
     stdio: "ignore",
     windowsHide: true,
   });

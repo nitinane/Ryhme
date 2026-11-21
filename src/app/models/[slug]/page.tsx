@@ -17,7 +17,7 @@ const modelForSlug = cache(async (value: string) => {
 
 export async function generateMetadata({ params }: PageProps<"/models/[slug]">): Promise<Metadata> {
   const model = await modelForSlug((await params).slug);
-  return { title: model ? `${model.name} | OneAtlas` : "Model details | OneAtlas" };
+  return { title: model ? `${model.name} | Ryhme` : "Model details | Ryhme" };
 }
 
 export default async function ModelPage({ params }: PageProps<"/models/[slug]">) {

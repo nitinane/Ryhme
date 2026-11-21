@@ -4,7 +4,7 @@ import { DirectoryFilters, DirectoryPages, InvalidDirectoryFilters } from "@/fea
 import { labQuery } from "@/features/ecosystem/query";
 import { listLabs } from "@/features/ecosystem/service";
 
-export const metadata: Metadata = { title: "AI labs | OneAtlas" };
+export const metadata: Metadata = { title: "AI labs | Ryhme" };
 
 export default async function LabsPage({ searchParams }: PageProps<"/labs">) {
   const raw = await searchParams;

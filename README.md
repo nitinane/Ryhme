@@ -1,4 +1,4 @@
-# OneAtlas — Execution-ready engineering pack
+# Ryhme — Execution-ready engineering pack
 
 **Mission:** Ship a credible AI model discovery and intelligence platform for a Full Stack Engineer internship assessment.
 **Hard submission deadline:** **2026-11-23 19:00 IST (Asia/Kolkata)**. Treat this as the submission cutoff; aim to finish deploy and verification earlier. **As-of planning date:** 2026-11-20.
@@ -12,7 +12,7 @@
 ## Chosen architecture
 Next.js App Router + React + TypeScript + Tailwind; Next.js route handlers and server components; Prisma + Neon PostgreSQL; Auth.js Google OAuth; Groq for advisor, query interpretation and optional playground; OpenRouter + Hugging Face + official documentation + curated sourced benchmarks; GitHub Actions + Vercel. Modular monolith, no Redis, microservices, or separate search infrastructure.
 
-## Run OneAtlas locally
+## Run Ryhme locally
 
 Use Node.js 24, npm, and an isolated PostgreSQL development database (Neon for hosted development). Run the commands from this directory.
 

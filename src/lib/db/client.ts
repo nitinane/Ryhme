@@ -2,10 +2,10 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../../generated/prisma/client";
 import { databaseConnectionString } from "../config/database";
 
-const database = globalThis as typeof globalThis & { oneAtlasDb?: PrismaClient };
+const database = globalThis as typeof globalThis & { ryhmeDb?: PrismaClient };
 
 export function getDb() {
-  return database.oneAtlasDb ??= new PrismaClient({
+  return database.ryhmeDb ??= new PrismaClient({
     adapter: new PrismaPg({
       connectionString: databaseConnectionString(),
       max: 3,

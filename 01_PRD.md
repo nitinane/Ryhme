@@ -1,7 +1,7 @@
 # 01 — Product Requirements Document (PRD)
 
 ## 1. Problem
-Developers choosing LLMs face fragmented model specifications, inconsistent benchmark reporting, provider-specific prices, changing versions, and marketing-driven comparisons. OneAtlas unifies sourced, comparable information and provides an explainable selection workflow. Do not assert unsupported market-size statistics.
+Developers choosing LLMs face fragmented model specifications, inconsistent benchmark reporting, provider-specific prices, changing versions, and marketing-driven comparisons. Ryhme unifies sourced, comparable information and provides an explainable selection workflow. Do not assert unsupported market-size statistics.
 
 ## 2. Users and jobs
 - **Application developer:** find models by modality, licensing, context, capability, provider, and cost; compare up to four candidates.

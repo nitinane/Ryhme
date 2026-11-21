@@ -1,4 +1,4 @@
-# OneAtlas — The Core Idea
+# Ryhme — The Core Idea
 
 **One platform to discover, understand, compare, and choose AI models with confidence.**
 
@@ -10,7 +10,7 @@ Choosing an AI model is harder than it should be. A developer might need to comp
 
 ## Our solution
 
-**OneAtlas is an AI model discovery and intelligence platform.** It brings model specifications, verified benchmark results, provider offerings, and pricing into one searchable interface. Instead of researching each model separately, users can explore alternatives, compare trade-offs side by side, and make an evidence-based decision for their use case.
+**Ryhme is an AI model discovery and intelligence platform.** It brings model specifications, verified benchmark results, provider offerings, and pricing into one searchable interface. Instead of researching each model separately, users can explore alternatives, compare trade-offs side by side, and make an evidence-based decision for their use case.
 
 Think of it as **a comparison and decision-making workspace for AI models**, rather than another chatbot or model-hosting service.
 
@@ -23,9 +23,9 @@ Think of it as **a comparison and decision-making workspace for AI models**, rat
 5. **Choose a provider:** Distinguish the organization that develops a model from the services that offer access to it.
 6. **Get guidance:** The planned AI Advisor interprets requirements and explains recommendations using verified catalog data and transparent selection rules.
 
-## What makes OneAtlas different?
+## What makes Ryhme different?
 
-**OneAtlas is designed around decision quality, not hype.**
+**Ryhme is designed around decision quality, not hype.**
 
 - **Evidence over marketing:** Benchmark scores, prices, and specifications show their sources and freshness where available.
 - **Trade-offs over a single winner:** The best model depends on the task, budget, context requirements, and deployment constraints.
@@ -39,7 +39,7 @@ Think of it as **a comparison and decision-making workspace for AI models**, rat
 
 ## Example judge walkthrough
 
-A developer wants a model for a coding assistant with a long context window and an affordable API cost. In OneAtlas, they search for those requirements, narrow the catalog, inspect candidate models, compare their specifications and estimated token costs, review coding-related benchmarks, and check which providers offer them. The decision is backed by visible data rather than an unsupported recommendation.
+A developer wants a model for a coding assistant with a long context window and an affordable API cost. In Ryhme, they search for those requirements, narrow the catalog, inspect candidate models, compare their specifications and estimated token costs, review coding-related benchmarks, and check which providers offer them. The decision is backed by visible data rather than an unsupported recommendation.
 
 ## What are we changing, really?
 
@@ -47,7 +47,7 @@ A developer wants a model for a coding assistant with a long context window and 
 
 **To:** “Which model is the best fit for *my requirements*, based on comparable evidence, cost, and availability?”
 
-OneAtlas turns model selection from **guesswork and tab-hopping into a structured, transparent workflow**.
+Ryhme turns model selection from **guesswork and tab-hopping into a structured, transparent workflow**.
 
 ## Technology and scope
 
@@ -57,7 +57,7 @@ The **submission-critical scope** is model discovery, model details, comparison,
 
 ## One-line pitch
 
-> **OneAtlas helps developers find the right AI model for the right job by putting specifications, benchmarks, pricing, and provider options in one trustworthy place.**
+> **Ryhme helps developers find the right AI model for the right job by putting specifications, benchmarks, pricing, and provider options in one trustworthy place.**
 
 ---
 

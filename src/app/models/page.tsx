@@ -7,7 +7,7 @@ import { catalogOptions, listModels } from "@/features/catalog/services/models";
 import { capabilities, catalogQuery, lifecycles } from "@/features/catalog/schemas/query";
 import { availability, capabilityNames, date, number } from "@/features/catalog/presentation";
 
-export const metadata: Metadata = { title: "Model catalog | OneAtlas" };
+export const metadata: Metadata = { title: "Model catalog | Ryhme" };
 
 const sorts = {
   name: "Name (A–Z)", release: "Newest release", context: "Largest context", price: "Lowest observed USD input price",

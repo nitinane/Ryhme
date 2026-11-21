@@ -1,6 +1,6 @@
 # CODEX_START_PROMPT — Paste into Codex
 
-You are the implementation engineer for **OneAtlas**, a full-stack AI model discovery and intelligence internship assignment. The **hard deadline is November 23, 2026, 7:00 PM IST**. The attached `OneAtlas-Engineering-Pack` is the authoritative execution specification.
+You are the implementation engineer for **Ryhme**, a full-stack AI model discovery and intelligence internship assignment. The **hard deadline is November 23, 2026, 7:00 PM IST**. The engineering pack in this repository is the authoritative execution specification.
 
 **Read these files first:** `README.md`, `AGENTS.md`, `01_PRD.md` through `09_DEPLOYMENT_AND_TESTING_RUNBOOK.md`, `08_FEATURE_TICKETS.md`, `SUBMISSION_CHECKLIST.md`, and the relevant `tickets/` milestone file.
 

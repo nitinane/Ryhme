@@ -9,7 +9,7 @@ import { CostCalculator } from "@/features/comparison/components/calculator";
 import { BrowseForComparison } from "@/features/comparison/components/selection";
 import { compareQuery } from "@/features/comparison/schemas/compare";
 
-export const metadata: Metadata = { title: "Compare models | OneAtlas" };
+export const metadata: Metadata = { title: "Compare models | Ryhme" };
 const unknown = "Unknown";
 
 type Cell = { value: ReactNode; known?: string };

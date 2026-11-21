@@ -41,7 +41,7 @@ export default function Home() {
     <main id="main-content" tabIndex={-1} className="frame home">
       <h1>Find the right AI model</h1>
       <p className="mt-5 max-w-lg text-lg leading-relaxed muted">
-        Explore model specifications, benchmark results, and provider options with sources you can inspect.
+        Use Ryhme to explore model specifications, benchmark results, and provider options with sources you can inspect.
       </p>
       <div className="mt-7 flex flex-wrap gap-2">
         <Link className="button primary" href="/models">Browse model catalog</Link>

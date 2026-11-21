@@ -60,7 +60,7 @@ export function Navigation() {
     <header className="site-header">
       <a className="skip-link" href="#main-content">Skip to content</a>
       <nav className="frame nav" aria-label="Main navigation">
-        <Link href="/" className="brand"><span className="brand-mark" aria-hidden="true">✦</span>OneAtlas</Link>
+        <Link href="/" className="brand"><span className="brand-mark" aria-hidden="true">✦</span>Ryhme</Link>
         <div className="nav-actions">
           <Link href="/models" aria-current={path.startsWith("/models") ? "page" : undefined}>Catalog</Link>
           <ComparisonLink active={path === "/compare"} />

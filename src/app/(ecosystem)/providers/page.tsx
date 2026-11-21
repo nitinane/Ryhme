@@ -4,7 +4,7 @@ import { DirectoryFilters, DirectoryPages, InvalidDirectoryFilters } from "@/fea
 import { providerQuery } from "@/features/ecosystem/query";
 import { listProviders } from "@/features/ecosystem/service";
 
-export const metadata: Metadata = { title: "API providers | OneAtlas" };
+export const metadata: Metadata = { title: "API providers | Ryhme" };
 
 export default async function ProvidersPage({ searchParams }: PageProps<"/providers">) {
   const raw = await searchParams;

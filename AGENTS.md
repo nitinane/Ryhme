@@ -1,7 +1,7 @@
-# AGENTS.md — Codex instructions for OneAtlas
+# AGENTS.md — Codex instructions for Ryhme
 
 ## Mission and priority
-Build OneAtlas for **2026-11-23 19:00 IST** hard deadline. P0 six mandatory modules + deploy + GitHub + Loom preparation before P1/P2. Read README and documents 01–09 before implementation. Work autonomously within constraints; report at milestone checkpoints.
+Build Ryhme for **2026-11-23 19:00 IST** hard deadline. P0 six mandatory modules + deploy + GitHub + Loom preparation before P1/P2. Read README and documents 01–09 before implementation. Work autonomously within constraints; report at milestone checkpoints.
 
 ## Mandatory engineering rules
 1. Use Next.js App Router, TypeScript, Tailwind, Prisma, Neon PostgreSQL, modular monolith. Avoid microservices, Redis, vector DB, and extra frameworks without approval.

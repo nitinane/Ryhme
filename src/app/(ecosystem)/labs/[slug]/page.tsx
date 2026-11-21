@@ -12,7 +12,7 @@ const getLab = cache((value: string) => slug.safeParse(value).success ? findLab(
 
 export async function generateMetadata({ params }: PageProps<"/labs/[slug]">): Promise<Metadata> {
   const lab = await getLab((await params).slug);
-  return { title: lab ? `${lab.name} lab | OneAtlas` : "AI lab | OneAtlas" };
+  return { title: lab ? `${lab.name} lab | Ryhme` : "AI lab | Ryhme" };
 }
 
 export default async function LabPage({ params }: PageProps<"/labs/[slug]">) {

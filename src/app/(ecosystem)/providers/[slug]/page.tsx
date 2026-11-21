@@ -13,7 +13,7 @@ export async function generateMetadata({ params }: PageProps<"/providers/[slug]"
   const value = (await params).slug;
   const provider = slug.safeParse(value).success
     ? await getDb().provider.findUnique({ where: { slug: value }, select: { name: true } }) : null;
-  return { title: provider ? `${provider.name} provider | OneAtlas` : "API provider | OneAtlas" };
+  return { title: provider ? `${provider.name} provider | Ryhme` : "API provider | Ryhme" };
 }
 
 export default async function ProviderPage({ params, searchParams }: PageProps<"/providers/[slug]">) {

@@ -6,7 +6,7 @@ import { rankings } from "@/features/benchmarks/service";
 import { SourceLink } from "@/features/catalog/components/source-link";
 import { date } from "@/features/catalog/presentation";
 
-export const metadata: Metadata = { title: "Benchmark rankings | OneAtlas" };
+export const metadata: Metadata = { title: "Benchmark rankings | Ryhme" };
 
 export default async function RankingsPage({ searchParams }: PageProps<"/rankings">) {
   const raw = await searchParams;

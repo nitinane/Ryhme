@@ -3,6 +3,10 @@ import { expect, test } from "@playwright/test";
 test("the public page reads the seeded count and fits a mobile viewport", async ({ page, request }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await page.goto("/");
+  await expect(page).toHaveTitle("Ryhme | AI model discovery");
+  await expect(page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Ryhme" })).toBeVisible();
+  await expect(page.getByRole("contentinfo")).toHaveText("Ryhme");
+  await expect(page.locator('meta[property="og:site_name"]')).toHaveAttribute("content", "Ryhme");
   await expect(page.getByRole("heading", { name: "Find the right AI model" })).toBeVisible();
   await expect(page.getByRole("region", { name: "Catalog at a glance" }).getByRole("definition").first()).toHaveText("4");
   await expect(page.getByRole("heading", { name: "Featured model versions" })).toBeVisible();
