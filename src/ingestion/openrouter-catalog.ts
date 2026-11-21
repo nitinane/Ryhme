@@ -86,7 +86,7 @@ const reviewedModels: Record<string, string> = {
   "google/gemma-3-27b-it": "gemma-3-27b-it",
 };
 
-function stableSlug(value: string) {
+export function stableSlug(value: string) {
   const hash = createHash("sha256").update(value).digest("hex").slice(0, 16);
   return `or-${value.replace(/[^a-z0-9]+/g, "-").slice(0, 95).replace(/-+$/, "")}-${hash}`;
 }

@@ -81,3 +81,18 @@ test("provider and lab directories cross-link offerings, creators and versions o
   expect(data.offerings).toHaveLength(1);
   expect(data.offerings[0]).toMatchObject({ externalModelId: "google/gemma-3-27b-it", prices: [] });
 });
+
+test("publishes all category tabs and lets readers search sourced publisher scores", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/rankings");
+  const tabs = page.getByRole("navigation", { name: "Benchmark categories" });
+  await expect(tabs.getByRole("link")).toHaveCount(10);
+  await expect(page.getByText(/Publisher-reported evaluation/)).toBeVisible();
+  await page.getByRole("searchbox", { name: "Search rankings" }).fill("mini");
+  await page.getByRole("button", { name: "Apply ranking filters" }).click();
+  await expect(page.getByRole("table").getByRole("row")).toHaveCount(2);
+  await expect(page.getByRole("table").getByText("23.6%")).toBeVisible();
+  await tabs.getByRole("link", {name:"Creative writing"}).click();
+  await expect(page.getByRole("heading", {name:"No verified benchmark coverage"})).toBeVisible();
+  await expect(page.getByRole("table")).toHaveCount(0);
+});

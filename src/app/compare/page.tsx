@@ -39,7 +39,8 @@ function rows(models: ModelDetail[]): { label: string; rows: Row[] }[] {
     for (const result of model.results) {
       const key = benchmarkCohortKey(result);
       const row = benchmarks.get(key) ?? {
-        label: `${result.benchmark.name}${result.benchmark.version ? ` · ${result.benchmark.version}` : ""}`,
+        label: [result.benchmark.name, result.methodologyVersion ?? result.benchmark.version, result.evaluationConfig]
+          .filter(Boolean).join(" / "),
         cells: models.map(() => ({ value: "No score reported" })),
       };
       row.cells[index] = {
@@ -121,7 +122,8 @@ export default async function ComparePage({ searchParams }: PageProps<"/compare"
             : <div className="grid gap-2">{charts.map(({ key, result, points, prices }, index) => {
               const { benchmark } = result;
               return <details className="benchmark-disclosure" key={key} open={index === 0}>
-                <summary>{benchmark.name} <span className="muted text-sm">· {result.methodologyVersion ?? benchmark.version ?? "Version unknown"}</span></summary>
+                <summary>{benchmark.name} <span className="muted text-sm">· {result.methodologyVersion ?? benchmark.version ?? "Version unknown"}
+                  {result.evaluationConfig && ` / ${result.evaluationConfig}`}</span></summary>
                 <div className="comparison-charts">
                   <BenchmarkBars title="Benchmark scores" metric={benchmark.metricName} unit={benchmark.unit}
                     direction={benchmark.direction} methodology={benchmark.methodology} evidenceDate={date(result.evaluatedAt)}

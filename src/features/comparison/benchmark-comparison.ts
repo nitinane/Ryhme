@@ -9,7 +9,8 @@ type PriceGroup = { provider: string; currency: string; observedAt: Date; points
 export const benchmarkWorkload = { input: 1_000_000, output: 100_000 };
 
 export function benchmarkCohortKey(result: Result) {
-  return JSON.stringify([result.benchmarkId, result.sourceId, result.evaluationKey, result.methodologyVersion, result.evaluatedAt]);
+  return JSON.stringify([result.benchmarkId, result.sourceId, result.evaluationKey, result.methodologyVersion, result.evaluatedAt,
+    result.evaluationOrigin, result.datasetRevision, result.evaluationConfig, result.publishedAt]);
 }
 
 export function benchmarkComparisons(models: ModelDetail[]) {

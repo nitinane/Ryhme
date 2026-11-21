@@ -4,10 +4,11 @@ import { FilterPanel } from "@/features/catalog/components/filter-panel";
 import { categoryName, type RankingQuery } from "../query";
 import type { rankings } from "../service";
 
-type Options = Pick<Awaited<ReturnType<typeof rankings>>, "categories" | "category" | "benchmark" | "benchmarks" | "labs" | "models" | "providers">;
+type Options = Pick<Awaited<ReturnType<typeof rankings>>, "categories" | "coveredCategories" | "category" | "benchmark" | "benchmarks" | "labs" | "models" | "providers">;
 
 export function rankingFilters(query: RankingQuery) {
   const params = new URLSearchParams();
+  if (query.q) params.set("q", query.q);
   if (query.provider) params.set("provider", query.provider);
   if (query.lab) params.set("lab", query.lab);
   if (query.model) params.set("model", query.model);
@@ -17,7 +18,8 @@ export function rankingFilters(query: RankingQuery) {
 }
 
 export function RankingControls({ action, options, query }: { action: "/" | "/rankings"; options: Options; query: RankingQuery }) {
-  const { categories, category, benchmarks, benchmark, labs, models, providers } = options;
+  const { category, benchmarks, benchmark, labs, models, providers } = options;
+  const categories = action === "/" ? options.coveredCategories : options.categories;
 
   return <>
     {categories.length > 0 && <nav className="benchmark-tabs" aria-label="Benchmark categories">
@@ -30,13 +32,15 @@ export function RankingControls({ action, options, query }: { action: "/" | "/ra
     </nav>}
     {benchmarks.length > 0 && <Form action={action} className="analytics-filters" key={JSON.stringify(query)}>
       <input type="hidden" name="category" value={category} />
+      {query.cohort && <input type="hidden" name="cohort" value={query.cohort} />}
       {query.limit !== 20 && <input type="hidden" name="limit" value={query.limit} />}
       <label>Benchmark<select name="benchmark" defaultValue={benchmark?.slug ?? ""}>
         <option value="">Default benchmark</option>
         {benchmarks.map((option) => <option key={option.id} value={option.slug}>{option.name}</option>)}
       </select></label>
-      <FilterPanel className="ranking-filter-options" label="Filters" active={[query.lab, query.model, query.provider, query.sort !== "best"].filter(Boolean).length}>
+      <FilterPanel className="ranking-filter-options" label="Filters" active={[query.q, query.lab, query.model, query.provider, query.sort !== "best"].filter(Boolean).length}>
         <div className="ranking-secondary">
+          <label>Search rankings<input name="q" type="search" maxLength={120} defaultValue={query.q} placeholder="Model or lab" /></label>
           <label>Lab<select name="lab" defaultValue={query.lab ?? ""}>
             <option value="">All labs</option>
             {labs.map(({ slug, name }) => <option key={slug} value={slug}>{name}</option>)}

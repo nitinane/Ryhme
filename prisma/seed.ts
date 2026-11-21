@@ -112,7 +112,7 @@ async function seed() {
         await tx.benchmarkResult.createMany({
           data: scored.map((result) => ({
             ...result, modelVersionId: model.id, sourceId, sourceUrl: launchUrl,
-            evaluationKey: "gpt-4-1-launch-2025-04-14", verifiedStatus: verificationStatus,
+            evaluationKey: "gpt-4-1-launch-2025-04-14", evaluationOrigin: "PUBLISHER", verifiedStatus: verificationStatus,
           })),
           skipDuplicates: true,
         });

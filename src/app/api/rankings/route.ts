@@ -7,8 +7,8 @@ export async function GET(request: Request) {
   const input = rankingQuery.safeParse(queryObject(new URL(request.url).searchParams));
   if (!input.success) return apiError(400);
   try {
-    const { data, meta, benchmark, cohort, categories } = await rankings(input.data);
-    return Response.json({ data, meta: { ...meta, benchmark: benchmark ?? null, cohort: cohort ?? null, categories } });
+    const { data, meta, benchmark, cohort, cohortSource, categories } = await rankings(input.data);
+    return Response.json({ data, meta: { ...meta, benchmark: benchmark ?? null, cohort: cohort ?? null, cohortSource: cohortSource ?? null, categories } });
   } catch {
     return apiError(503);
   }

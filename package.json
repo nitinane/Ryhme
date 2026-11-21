@@ -19,7 +19,8 @@
     "db:migrate": "prisma migrate deploy",
     "db:seed": "prisma generate && prisma db seed",
     "db:ingest:openrouter": "prisma generate && tsx scripts/ingest-openrouter.ts",
-    "db:sync:openrouter": "prisma generate && tsx scripts/sync-openrouter-catalog.ts"
+    "db:sync:openrouter": "prisma generate && tsx scripts/sync-openrouter-catalog.ts",
+    "db:ingest:bfcl": "prisma generate && tsx scripts/ingest-bfcl.ts"
   },
   "dependencies": {
     "@next/env": "^16.4.6",

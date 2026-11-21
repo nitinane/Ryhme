@@ -20,6 +20,12 @@ enum VerificationStatus {
   CONFLICTED
 }
 
+enum EvaluationOrigin {
+  UNKNOWN
+  INDEPENDENT
+  PUBLISHER
+}
+
 enum ScoreDirection {
   HIGHER
   LOWER
@@ -150,6 +156,11 @@ model BenchmarkResult {
   score              Decimal @db.Decimal(18, 8)
   evaluatedAt        DateTime? @db.Date
   methodologyVersion String?
+  evaluationOrigin   EvaluationOrigin @default(UNKNOWN)
+  datasetRevision    String?
+  evaluationConfig   String?
+  publishedAt        DateTime? @db.Date
+  observedAt         DateTime? @db.Timestamptz(3)
   evaluationKey      String
   verifiedStatus     VerificationStatus @default(UNVERIFIED)
   sourceId           String

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { evaluationOriginLabel } from "@/features/benchmarks/categories";
 import { rankingQuery } from "@/features/benchmarks/query";
 import { rankings } from "@/features/benchmarks/service";
 import { SourceLink } from "@/features/catalog/components/source-link";
@@ -18,7 +19,7 @@ export default async function RankingsPage({ searchParams }: PageProps<"/ranking
   </main>;
   const query = input.data;
   const results = await rankings(query);
-  const { benchmark, cohorts, cohort, data, meta } = results;
+  const { benchmark, cohorts, cohort, cohortSource, data, meta } = results;
   const pageHref = (page: number) => {
     const params = new URLSearchParams(Object.entries(raw).flatMap(([key, value]) => typeof value === "string" ? [[key, value]] : []));
     params.set("page", String(page));
@@ -33,15 +34,23 @@ export default async function RankingsPage({ searchParams }: PageProps<"/ranking
       <Link className="text-link mt-2 inline-block" href="/rankings">Browse available benchmarks</Link>
     </section> : <>
       <div className="ranking-insights">
-      <BenchmarkBars key={cohort.id} title="Ranked scores" metric={benchmark.metricName} unit={benchmark.unit}
+      {cohort.evaluatedModels < 2 ? <section className="panel"><h2>Insufficient comparable evidence</h2>
+        <p className="muted mt-2">This evaluation has fewer than two matched model versions.</p></section>
+        : <BenchmarkBars key={cohort.id} title="Ranked scores" metric={benchmark.metricName} unit={benchmark.unit}
         direction={benchmark.direction} methodology={benchmark.methodology} evidenceDate={date(cohort.evaluatedAt)}
-        points={data} />
+        points={data} />}
       <section className="evidence-panel" aria-labelledby="benchmark-heading">
         <h2 id="benchmark-heading">{benchmark.name}</h2>
         <p className="mt-2">{benchmark.methodology}</p>
+        <p className="muted mt-2">{evaluationOriginLabel[cohort.evaluationOrigin]} / {cohort.evaluatedModels} evaluated model versions</p>
+        {cohort.evaluationConfig && <p className="muted">{cohort.evaluationConfig}</p>}
+        {cohort.publishedAt && <p className="muted">Archive published {date(cohort.publishedAt)}</p>}
+        {cohort.observedAt && <p className="muted">Evidence observed {date(cohort.observedAt)}</p>}
+        {cohort.datasetRevision && <details className="muted"><summary>Dataset revision</summary><p className="break-all">{cohort.datasetRevision}</p></details>}
         <p className="muted mt-2">{benchmark.metricName} ({benchmark.unit}) · {benchmark.direction === "HIGHER" ? "Higher is better" : "Lower is better"}</p>
         <p className="muted">Evaluation date {date(cohort.evaluatedAt)} · {cohort.methodologyVersion ?? benchmark.version ?? "Methodology version unknown"}</p>
-        <p className="mt-2"><SourceLink url={benchmark.sourceUrl}>{benchmark.source.name} benchmark source</SourceLink></p>
+        <p className="mt-2"><SourceLink url={benchmark.sourceUrl}>{benchmark.source.name} benchmark source</SourceLink>
+          {cohortSource && cohort.sourceId !== benchmark.sourceId && <> / <SourceLink url={cohortSource.homepage}>{cohortSource.name} evaluator</SourceLink></>}</p>
         {cohorts.length > 1 && <nav aria-label="Evaluation cohorts" className="mt-3 flex flex-wrap gap-2">{cohorts.map((item) => {
           const params = rankingFilters(query);
           params.set("category", benchmark.category);
@@ -49,11 +58,12 @@ export default async function RankingsPage({ searchParams }: PageProps<"/ranking
           params.set("cohort", item.id);
           return <Link className="button" key={item.id} aria-current={item.id === cohort.id ? "page" : undefined}
             href={`/rankings?${params}`}>
-            {item.methodologyVersion ?? item.evaluationKey} · {date(item.evaluatedAt)}
+            {item.evaluationConfig ?? item.methodologyVersion ?? item.evaluationKey} · {date(item.evaluatedAt ?? item.publishedAt)}
           </Link>
         })}</nav>}
       </section>
       </div>
+      {cohort.evaluatedModels >= 2 && <>
       <p className="muted my-4" role="status">{meta.total} scored · {meta.eligible - meta.total} without a comparable score</p>
       {meta.total === 1 && <p className="muted mb-4">Only one comparable score is available for these filters.</p>}
       {data.length === 0 ? <section className="panel"><h2>No comparable scores on this page</h2>
@@ -75,6 +85,7 @@ export default async function RankingsPage({ searchParams }: PageProps<"/ranking
         <span>Page {meta.page}</span>
         {meta.hasMore && meta.page < 10_000 && <Link className="button" href={pageHref(meta.page + 1)}>Next page</Link>}
       </nav>}
+      </>}
     </>}
     </div>
   </main>;

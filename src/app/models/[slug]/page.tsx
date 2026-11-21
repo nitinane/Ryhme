@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { cache } from "react";
+import { evaluationOriginLabel } from "@/features/benchmarks/categories";
 import { SourceLink } from "@/features/catalog/components/source-link";
 import { availability, capabilityNames, date, list, modalityNames, number, utcTime } from "@/features/catalog/presentation";
 import { lifecycles, slug } from "@/features/catalog/schemas/query";
@@ -89,6 +90,9 @@ export default async function ModelPage({ params }: PageProps<"/models/[slug]">)
                 <h3>{result.benchmark.name}</h3>
                 <p className="mt-1"><strong>{result.score.toString()}{result.benchmark.unit === "%" ? "%" : ` ${result.benchmark.unit}`}</strong> · {result.benchmark.metricName}</p>
                 <p className="muted">{result.benchmark.direction === "HIGHER" ? "Higher is better" : "Lower is better"} · Evaluation date {date(result.evaluatedAt)}</p>
+                <p className="muted">{evaluationOriginLabel[result.evaluationOrigin]}
+                  {result.evaluationConfig && ` / ${result.evaluationConfig}`}</p>
+                {result.publishedAt && <p className="muted">Archive published {date(result.publishedAt)}</p>}
                 <p className="muted mt-2">{result.benchmark.methodology}</p>
                 <p className="mt-2"><SourceLink url={result.sourceUrl}>{result.source.name} result</SourceLink> · {result.verifiedStatus.toLowerCase()} source attribution</p>
               </li>)}

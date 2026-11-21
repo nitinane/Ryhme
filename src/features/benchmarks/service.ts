@@ -1,6 +1,7 @@
 import "server-only";
 import { Prisma } from "@/generated/prisma/client";
 import { getDb } from "@/lib/db/client";
+import { rankingCategories } from "./categories";
 import { scoreDirection, type RankingQuery } from "./query";
 
 type ScoreRow = {
@@ -21,23 +22,27 @@ export async function rankings(query: RankingQuery) {
       select: { slug: true, canonicalName: true }, orderBy: [{ canonicalName: "asc" }, { slug: "asc" }],
     }),
   ]);
-  const categories = [...new Set(definitions.map(({ category }) => category))];
+  const coveredCategories = [...new Set<string>(definitions.map(({ category }) => category))];
+  const categories = [...new Set<string>([...rankingCategories, ...coveredCategories])];
   const requested = definitions.find(({ slug }) => slug === query.benchmark);
-  const category = query.category ?? requested?.category ?? (categories.includes("coding") ? "coding" : categories[0]);
+  const category = query.category ?? requested?.category ?? (coveredCategories.includes("coding") ? "coding" : coveredCategories[0] ?? "coding");
   const benchmarks = definitions.filter((item) => item.category === category);
   const benchmark = query.benchmark ? benchmarks.find(({ slug }) => slug === query.benchmark) : benchmarks[0];
 
   const groups = benchmark ? await db.benchmarkResult.groupBy({
-    by: ["sourceId", "evaluationKey", "methodologyVersion", "evaluatedAt"],
+    by: ["sourceId", "evaluationKey", "methodologyVersion", "evaluatedAt", "evaluationOrigin", "datasetRevision", "evaluationConfig", "publishedAt"],
     where: { benchmarkId: benchmark.id, verifiedStatus: "VERIFIED" },
     _min: { id: true },
-    orderBy: [{ evaluatedAt: { sort: "desc", nulls: "last" } }, { _count: { id: "desc" } }, { _min: { id: "asc" } }],
+    _count: { id: true },
+    _max: { observedAt: true },
+    orderBy: [{ evaluatedAt: { sort: "desc", nulls: "last" } }, { publishedAt: { sort: "desc", nulls: "last" } }, { _count: { id: "desc" } }, { _min: { id: "asc" } }],
   }) : [];
-  const cohorts = groups.map(({ _min, ...group }) => ({ ...group, id: _min.id! }));
-  const cohort = query.cohort ? cohorts.find(({ id }) => id === query.cohort) : cohorts[0];
+  const cohorts = groups.map(({ _min, _count, _max, ...group }) => ({ ...group, id: _min.id!, evaluatedModels: _count.id, observedAt: _max.observedAt }));
+  const cohort = cohorts.find(({ id }) => id === query.cohort) ?? cohorts.find(({ evaluatedModels }) => evaluatedModels >= 2) ?? cohorts[0];
   const empty = { data: [] as ScoreRow[], meta: { total: 0, eligible: 0, page: query.page, limit: query.limit, hasMore: false } };
-  const selection = { categories, category, benchmarks, benchmark, providers, labs, models, cohorts, cohort };
-  if (!benchmark || !cohort) return { ...empty, ...selection };
+  const cohortSource = cohort && (await db.dataSource.findUnique({ where: { id: cohort.sourceId }, select: { name: true, homepage: true } }));
+  const selection = { categories, coveredCategories, category, benchmarks, benchmark, providers, labs, models, cohorts, cohort, cohortSource };
+  if (!benchmark || !cohort || cohort.evaluatedModels < 2) return { ...empty, ...selection };
 
   const better = scoreDirection(benchmark.direction) === "DESC" ? Prisma.sql`DESC` : Prisma.sql`ASC`;
   const display = query.sort === "worst" ? Prisma.sql`DESC` : Prisma.sql`ASC`;
@@ -51,6 +56,7 @@ export async function rankings(query: RankingQuery) {
       FROM "ModelVersion" m JOIN "ModelFamily" f ON f.id = m."familyId"
       JOIN "Lab" l ON l.id = f."labId"
       WHERE TRUE ${providerFilter}
+        ${query.q ? Prisma.sql`AND strpos(lower(m."canonicalName" || ' ' || m.slug || ' ' || l.name), lower(${query.q})) > 0` : Prisma.empty}
         ${query.lab ? Prisma.sql`AND l.slug = ${query.lab}` : Prisma.empty}
         ${query.model ? Prisma.sql`AND m.slug = ${query.model}` : Prisma.empty}
     ), ranked AS (
@@ -59,6 +65,10 @@ export async function rankings(query: RankingQuery) {
       FROM eligible e JOIN "BenchmarkResult" r ON r."modelVersionId" = e.id
       WHERE r."benchmarkId" = ${benchmark.id} AND r."sourceId" = ${cohort.sourceId}
         AND r."evaluationKey" = ${cohort.evaluationKey} AND r."verifiedStatus" = 'VERIFIED'
+        AND r."evaluationOrigin" = ${cohort.evaluationOrigin}::"EvaluationOrigin"
+        AND r."datasetRevision" IS NOT DISTINCT FROM ${cohort.datasetRevision}::text
+        AND r."evaluationConfig" IS NOT DISTINCT FROM ${cohort.evaluationConfig}::text
+        AND r."publishedAt" IS NOT DISTINCT FROM ${cohort.publishedAt?.toISOString().slice(0, 10) ?? null}::date
         AND r."methodologyVersion" IS NOT DISTINCT FROM ${cohort.methodologyVersion}::text
         AND r."evaluatedAt" IS NOT DISTINCT FROM ${cohort.evaluatedAt ? cohort.evaluatedAt.toISOString().slice(0, 10) : null}::date
     )
