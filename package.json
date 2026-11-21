@@ -16,7 +16,8 @@
     "test:e2e": "playwright test",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
-    "db:seed": "prisma generate && prisma db seed"
+    "db:seed": "prisma generate && prisma db seed",
+    "db:ingest:openrouter": "prisma generate && tsx scripts/ingest-openrouter.ts"
   },
   "dependencies": {
     "@next/env": "^16.4.6",

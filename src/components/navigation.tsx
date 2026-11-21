@@ -64,6 +64,9 @@ export function Navigation() {
         <div className="nav-actions">
           <Link href="/models" aria-current={path.startsWith("/models") ? "page" : undefined}>Catalog</Link>
           <ComparisonLink active={path === "/compare"} />
+          <Link href="/rankings" aria-current={path === "/rankings" ? "page" : undefined}>Rankings</Link>
+          <Link href="/labs" aria-current={path.startsWith("/labs") ? "page" : undefined}>Labs</Link>
+          <Link href="/providers" aria-current={path.startsWith("/providers") ? "page" : undefined}>Providers</Link>
           <button className="button search-trigger" type="button" onClick={open}>
             Search <kbd className="hidden sm:inline">Ctrl K</kbd>
           </button>

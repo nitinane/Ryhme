@@ -31,7 +31,7 @@ npm run dev
 
 Open `http://localhost:3000`. The homepage reads the catalog size from PostgreSQL. `GET /api/health` returns 200 when the catalog table can be queried and a safe 503 otherwise.
 
-The seed contains three GPT-4.1 snapshots with [publisher-reported launch prices and benchmark results](https://openai.com/index/gpt-4-1/). Provider listings are dated documentation observations. Repeated seeding preserves existing records and historical observations.
+The offline seed contains four model versions across two labs and two providers. It includes three GPT-4.1 snapshots with [publisher-reported launch prices and benchmark results](https://openai.com/index/gpt-4-1/) and Gemma 3 27B Instruct with a [Google DeepMind model card](https://huggingface.co/google/gemma-3-27b-it) and an [OpenRouter listing observation](https://openrouter.ai/api/v1/models/google/gemma-3-27b-it/endpoints). Repeated seeding preserves existing records and historical observations.
 
 Run `npm run lint`, `npm run typecheck`, `npm test`, and `npm run build`. For integration and mobile smoke, use a fresh development database, run the migration and seed twice, run `npm exec -- tsx tests/seed-check.ts` after each seed, then run `npm exec -- playwright install chromium` and `npm run test:e2e` after the build. GitHub Actions runs the same checks against disposable PostgreSQL. Vercel can use its Next.js preset and `npm run build`; apply reviewed migrations as a separate controlled step.
 
@@ -42,6 +42,14 @@ Open `/models` or press Ctrl+K (Cmd+K on macOS). PostgreSQL indexes support mode
 Select two to four models in the catalog or on their detail pages. The comparison URL stores the ordered model IDs. Prices are historical observations. The USD price filter and sort use the lowest latest observed input rate among documented listed offerings, scoped to the selected provider when applicable. Retired offerings remain visible as historical records. The estimator uses an individual offering’s latest recorded price and labels the date and currency.
 
 The public JSON endpoints are `GET /api/models`, `GET /api/models/:slug`, `GET /api/compare?modelId=...&modelId=...`, and `POST /api/compare/cost`. The cost body contains `offeringIds`, `inputTokens`, and `outputTokens`. Numeric amounts are decimal strings and missing amounts are `null`.
+
+## Benchmarks and ecosystem
+
+Open `/rankings` to browse SWE-bench Verified, GPQA Diamond, and AIME 2024. Results rank within a single published evaluation, with shared ranks for tied scores. Rows with missing comparable scores are counted separately. The launch report supplies a publication date. Evaluation dates are shown as unknown when the publisher leaves them unspecified.
+
+`/labs` groups versions by the organization that publishes them. `/providers` searches API providers by provider or model name and filters by dated availability and model capability. The directories link to model details and expose `GET /api/labs`, `GET /api/labs/:slug`, `GET /api/providers`, `GET /api/providers/:slug`, and `GET /api/rankings`.
+
+For an opt-in refresh of the OpenRouter listing, configure the seeded development database and run `npm run db:ingest:openrouter`. It makes one unauthenticated metadata GET with an eight-second timeout. It checks the exact allowlisted model ID and only updates a matching positive listing observation. OpenRouter routes can quote different prices. The gateway-level cost remains unknown. App startup, build, tests, and seeding use the checked-in snapshot.
 
 ## Engineering documents
 - `01_PRD.md`: product outcomes and scope

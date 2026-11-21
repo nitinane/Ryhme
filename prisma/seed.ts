@@ -1,6 +1,7 @@
 import { Prisma } from "../src/generated/prisma/client";
 import { getDb } from "../src/lib/db/client";
 import { docsObservedAt, launchDate, launchUrl, models } from "./catalog-data";
+import { seedGemma } from "./gemma";
 
 async function seed() {
   const db = getDb();
@@ -42,6 +43,23 @@ async function seed() {
           version: "OpenAI GPT-4.1 launch, April 2025", sourceId, sourceUrl: launchUrl,
         },
       });
+      const academic = [
+        { slug: "gpqa-diamond-openai-gpt-4-1-launch", name: "GPQA Diamond", category: "reasoning",
+          methodology: "OpenAI's GPT-4.1 launch evaluation on GPQA Diamond graduate-level science questions. The publisher used model-based answer extraction.",
+          field: "gpqaScore" },
+        { slug: "aime-2024-openai-gpt-4-1-launch", name: "AIME 2024", category: "mathematics",
+          methodology: "OpenAI's GPT-4.1 launch results on AIME 2024 mathematics problems. The evaluation date and scoring protocol are unspecified.",
+          field: "aimeScore" },
+      ] as const;
+      const academicBenchmarks = [];
+      for (const { field, ...definition } of academic) {
+        const record = await tx.benchmark.upsert({
+          where: { slug: definition.slug }, update: {},
+          create: { ...definition, metricName: "Reported score", unit: "%", direction: "HIGHER",
+            version: "OpenAI GPT-4.1 launch, April 2025", sourceId, sourceUrl: launchUrl },
+        });
+        academicBenchmarks.push({ id: record.id, field });
+      }
 
       const observations = [
         { entityType: "Lab", entityId: lab.id, field: "identity" },
@@ -89,20 +107,21 @@ async function seed() {
           },
           skipDuplicates: true,
         });
-        if (sweBenchScore !== null) {
-          await tx.benchmarkResult.createMany({
-            data: {
-              benchmarkId: benchmark.id, modelVersionId: model.id, sourceId, sourceUrl: launchUrl,
-              evaluationKey: "gpt-4-1-launch-2025-04-14", score: sweBenchScore, verifiedStatus: verificationStatus,
-            },
-            skipDuplicates: true,
-          });
-        }
+        const scored = academicBenchmarks.map(({ id, field }) => ({ benchmarkId: id, score: entry[field] }));
+        if (sweBenchScore !== null) scored.push({ benchmarkId: benchmark.id, score: sweBenchScore });
+        await tx.benchmarkResult.createMany({
+          data: scored.map((result) => ({
+            ...result, modelVersionId: model.id, sourceId, sourceUrl: launchUrl,
+            evaluationKey: "gpt-4-1-launch-2025-04-14", verifiedStatus: verificationStatus,
+          })),
+          skipDuplicates: true,
+        });
       }
       await tx.sourceObservation.createMany({
         data: observations.map((observation) => ({ ...observation, sourceId, verificationStatus })),
         skipDuplicates: true,
       });
+      await seedGemma(tx);
     }, { timeout: 30_000 });
     console.log("Catalog seed completed.");
   } finally {

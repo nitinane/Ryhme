@@ -4,7 +4,8 @@ test("the public page reads the seeded count and fits a mobile viewport", async 
   await page.setViewportSize({ width: 375, height: 812 });
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Find the right AI model" })).toBeVisible();
-  await expect(page.getByRole("status")).toHaveText("3 model versions in the catalog");
+  await expect(page.getByRole("region", { name: "Catalog at a glance" }).getByRole("definition").first()).toHaveText("4");
+  await expect(page.getByRole("heading", { name: "Featured model versions" })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(375);
   const health = await request.get("/api/health");
   expect(health.status()).toBe(200);

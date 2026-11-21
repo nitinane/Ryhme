@@ -28,7 +28,7 @@ export default async function ModelPage({ params }: PageProps<"/models/[slug]">)
       <Link className="text-link text-sm" href="/models">← Model catalog</Link>
       <div className="page-heading flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p>{model.family.lab.name} / {model.family.name}</p>
+          <p><Link className="text-link" href={`/labs/${model.family.lab.slug}`}>{model.family.lab.name}</Link> / {model.family.name}</p>
           <h1>{model.name}</h1>
           <span className="chip mt-3 inline-block">{lifecycles[model.lifecycle]}</span>
         </div>
@@ -64,7 +64,8 @@ export default async function ModelPage({ params }: PageProps<"/models/[slug]">)
             <ul className="detail-list">
               {model.offerings.map((offer) => <li key={offer.id}>
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h3>{offer.provider.name}</h3><span className="chip">{availability[offer.availabilityStatus]}</span>
+                  <h3><Link className="text-link" href={`/providers/${offer.provider.slug}`}>{offer.provider.name}</Link></h3>
+                  <span className="chip">{availability[offer.availabilityStatus]}</span>
                 </div>
                 <p className="muted mt-2 break-all">{offer.externalModelId}</p>
                 {offer.contextOverride !== null && <p>Provider context limit {number(offer.contextOverride)} tokens</p>}

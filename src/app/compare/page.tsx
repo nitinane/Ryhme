@@ -34,7 +34,7 @@ function rows(models: ModelDetail[]): Row[] {
   const benchmarks = new Map<string, Row>();
   for (const [index, model] of models.entries()) {
     for (const result of model.results) {
-      const key = JSON.stringify([result.benchmarkId, result.sourceId, result.evaluationKey, result.methodologyVersion]);
+      const key = JSON.stringify([result.benchmarkId, result.sourceId, result.evaluationKey, result.methodologyVersion, result.evaluatedAt]);
       const row = benchmarks.get(key) ?? {
         label: `${result.benchmark.name}${result.benchmark.version ? ` · ${result.benchmark.version}` : ""}`,
         cells: models.map(() => ({ value: "No score reported" })),

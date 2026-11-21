@@ -159,6 +159,7 @@ model BenchmarkResult {
 
   @@unique([benchmarkId, modelVersionId, sourceId, evaluationKey])
   @@index([benchmarkId, score])
+  @@index([benchmarkId, verifiedStatus, sourceId, evaluationKey, methodologyVersion, evaluatedAt], map: "BenchmarkResult_cohort_idx")
   @@index([modelVersionId])
 }
 

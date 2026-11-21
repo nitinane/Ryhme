@@ -15,6 +15,8 @@ const catalog = z.array(z.strictObject({
   inputPerMillion: price,
   outputPerMillion: price,
   sweBenchScore: z.number().min(0).max(100).nullable(),
+  gpqaScore: z.number().min(0).max(100),
+  aimeScore: z.number().min(0).max(100),
 }));
 
 export const models = catalog.parse([
@@ -28,6 +30,8 @@ export const models = catalog.parse([
     inputPerMillion: "2.00",
     outputPerMillion: "8.00",
     sweBenchScore: 54.6,
+    gpqaScore: 66.3,
+    aimeScore: 48.1,
   },
   {
     slug: "gpt-4-1-mini-2025-04-14",
@@ -39,6 +43,8 @@ export const models = catalog.parse([
     inputPerMillion: "0.40",
     outputPerMillion: "1.60",
     sweBenchScore: 23.6,
+    gpqaScore: 65.0,
+    aimeScore: 49.6,
   },
   {
     slug: "gpt-4-1-nano-2025-04-14",
@@ -50,5 +56,7 @@ export const models = catalog.parse([
     inputPerMillion: "0.10",
     outputPerMillion: "0.40",
     sweBenchScore: null,
+    gpqaScore: 50.3,
+    aimeScore: 29.4,
   },
 ]);

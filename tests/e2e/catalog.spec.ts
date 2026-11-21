@@ -26,6 +26,8 @@ test("catalog search, filters, stable pagination, and URL restore query PostgreS
   await expect(page.getByRole("status")).toHaveText("1 result");
   await expect(page.getByRole("link", { name: "GPT-4.1 mini", exact: true })).toHaveAttribute("href", mini);
   await page.goto("/models?openWeights=true");
+  await expect(page.getByRole("link", { name: "Gemma 3 27B Instruct" })).toBeVisible();
+  await page.goto("/models?openWeights=false");
   await expect(page.getByRole("heading", { name: "No matching models" })).toBeVisible();
   await page.goto("/models?page=99");
   await expect(page.getByRole("link", { name: "Go to first page" })).toBeVisible();
@@ -51,7 +53,7 @@ test("global keyboard search opens, restores focus, and navigates to sourced mod
   await expect(page.getByRole("heading", { name: "GPT-4.1 nano", exact: true })).toBeVisible();
   await expect(page.getByText("Historical pricing · USD per 1M tokens")).toBeVisible();
   await expect(page.getByText("Unavailable", { exact: true })).toBeVisible();
-  await expect(page.getByText("No benchmark scores reported for this version.")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "GPQA Diamond" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Offering source" })).toHaveAttribute("href", /developers\.openai\.com/);
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(375);
   await page.getByRole("link", { name: "GPT-4.1", exact: true }).click();
@@ -64,7 +66,7 @@ test("global keyboard search opens, restores focus, and navigates to sourced mod
 
 test("model selection, comparison links and historical costs work on a narrow screen", async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
-  await page.goto("/models?limit=2");
+  await page.goto("/models?q=GPT-4.1&limit=2");
   await expect(page.getByRole("searchbox", { name: "Model name" })).toBeHidden();
   const filterDisclosure = page.locator("details.filter-panel > summary");
   await expect(filterDisclosure).toBeVisible();
@@ -94,14 +96,19 @@ test("model selection, comparison links and historical costs work on a narrow sc
   await expect(page.getByText("USD 0.56")).toBeVisible();
   await page.getByRole("link", { name: "Edit in catalog" }).click();
   await expect(page.getByRole("checkbox", { name: "Compare GPT-4.1 nano", exact: true })).toBeChecked();
+  await page.getByRole("checkbox", { name: "Compare Gemma 3 27B Instruct" }).check();
+  await page.getByRole("link", { name: "Compare selected" }).click();
+  await expect(page.getByRole("columnheader")).toHaveCount(5);
 });
 
 test("catalog and comparison APIs return bounded results and validation envelopes", async ({ request }) => {
   const list = await request.get("/api/models?sort=price");
   expect(list.status()).toBe(200);
   const { data: models, meta } = await list.json();
-  expect(meta).toEqual({ page: 1, limit: 20, total: 3, hasMore: false });
-  expect(models.map(({ slug }: { slug: string }) => slug)).toEqual([mini.split("/").pop(), primary.split("/").pop(), nano.split("/").pop()]);
+  expect(meta).toEqual({ page: 1, limit: 20, total: 4, hasMore: false });
+  const slugs = models.map(({ slug }: { slug: string }) => slug);
+  expect(slugs.slice(0, 2)).toEqual([mini.split("/").pop(), primary.split("/").pop()]);
+  expect(slugs.slice(2)).toEqual(expect.arrayContaining([nano.split("/").pop(), "gemma-3-27b-it"]));
   expect((await request.get("/api/models?limit=101")).status()).toBe(400);
   const context = await request.get("/api/models?minContext=2000000");
   expect(context.status()).toBe(200);
@@ -112,7 +119,7 @@ test("catalog and comparison APIs return bounded results and validation envelope
   const detail = await request.get(`/api${mini}`);
   expect(detail.status()).toBe(200);
   const { data: model } = await detail.json();
-  expect(model.results[0].score).toBe("23.6");
+  expect(model.results.find((result: { benchmark: { name: string } }) => result.benchmark.name === "SWE-bench Verified").score).toBe("23.6");
 
   const id = models[0].id;
   expect((await request.get(`/api/compare?modelId=${id}&modelId=${id}`)).status()).toBe(400);

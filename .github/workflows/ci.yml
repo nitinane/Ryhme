@@ -36,7 +36,9 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run db:migrate
+      - run: npm exec -- prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code
       - run: npm run db:seed
+      - run: npm exec -- tsx tests/seed-check.ts
       - run: npm run db:seed
       - run: npm exec -- tsx tests/seed-check.ts
       - run: npm run build
