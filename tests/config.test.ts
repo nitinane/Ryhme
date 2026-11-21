@@ -2,6 +2,14 @@ import { describe, expect, it } from "vitest";
 import { databaseConnectionString, databaseEnv } from "../src/lib/config/database";
 import { models } from "../prisma/catalog-data";
 
+it("blocks the development URL in Vercel Production and requires Preview metadata on Vercel", () => {
+  const env = { DATABASE_URL: "postgresql://local:local@127.0.0.1:5432/oneatlas" };
+  expect(databaseEnv.safeParse({ ...env, VERCEL: "1", VERCEL_ENV: "preview" }).success).toBe(true);
+  expect(databaseEnv.safeParse({ ...env, VERCEL_ENV: "production" }).success).toBe(false);
+  expect(databaseEnv.safeParse({ ...env, VERCEL_TARGET_ENV: "production" }).success).toBe(false);
+  expect(databaseEnv.safeParse({ ...env, VERCEL: "1" }).success).toBe(false);
+});
+
 describe("database configuration", () => {
   it("accepts PostgreSQL and treats an empty direct URL as unset", () => {
     const url = "postgresql://local:local@127.0.0.1:5432/oneatlas";

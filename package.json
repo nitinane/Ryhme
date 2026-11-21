@@ -15,6 +15,7 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "db:generate": "prisma generate",
+    "db:verify:neon": "tsx scripts/verify-neon-development.ts",
     "db:migrate": "prisma migrate deploy",
     "db:seed": "prisma generate && prisma db seed",
     "db:ingest:openrouter": "prisma generate && tsx scripts/ingest-openrouter.ts"

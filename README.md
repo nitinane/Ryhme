@@ -21,7 +21,7 @@ npm ci
 Copy-Item .env.example .env.local
 ```
 
-Set `DATABASE_URL` in `.env.local`. For Neon, use the pooled connection for the app and put the direct connection in `DIRECT_URL` for migrations. Prisma CLI and Next.js both load `.env.local`. Keep production credentials in the Vercel production scope and preview credentials in a separate development scope.
+Set `DATABASE_URL` in `.env.local`. For Neon, use the pooled connection for the app and put the direct connection in `DIRECT_URL` for migrations. Prisma CLI and Next.js both load `.env.local`. Follow the [hosted handoff](09_DEPLOYMENT_AND_TESTING_RUNBOOK.md#hosted-verification-handoff) to verify an isolated Neon target before approved writes and scope the URL to Vercel Preview.
 
 ```powershell
 npm run db:migrate
