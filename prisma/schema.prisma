@@ -94,7 +94,8 @@ model Offering {
   externalModelId    String
   availabilityStatus Availability @default(UNKNOWN)
   contextOverride    Int?
-  observedAt         DateTime @db.Date
+  observedAt         DateTime @db.Timestamptz(3)
+  catalogMissingSince DateTime? @db.Timestamptz(3)
   sourceId           String
   sourceUrl          String
   provider           Provider @relation(fields: [providerId], references: [id], onDelete: Restrict)
@@ -113,7 +114,7 @@ model PriceObservation {
   currency         String @db.Char(3)
   inputPerMillion  Decimal? @db.Decimal(18, 8)
   outputPerMillion Decimal? @db.Decimal(18, 8)
-  observedAt       DateTime @db.Date
+  observedAt       DateTime @db.Timestamptz(3)
   sourceId         String
   sourceUrl        String
   offering         Offering @relation(fields: [offeringId], references: [id], onDelete: Restrict)
@@ -169,6 +170,7 @@ model DataSource {
   homepage     String
   sourceType   String
   trustPolicy  String
+  catalogSyncedAt DateTime? @db.Timestamptz(3)
   observations SourceObservation[]
   offerings    Offering[]
   prices       PriceObservation[]

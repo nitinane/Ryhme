@@ -7,6 +7,9 @@ const nano = "/models/gpt-4-1-nano-2025-04-14";
 test("catalog search, filters, stable pagination, and URL restore query PostgreSQL", async ({ page }) => {
   await page.goto("/models?q=GPT-4.1&limit=1");
   await expect(page.getByRole("status")).toHaveText("3 results");
+  await expect(page.getByText(/Last successful OpenRouter sync.*Awaiting first scheduled run/)).toBeVisible();
+  await expect(page.getByText("New to Ryhme").first()).toBeVisible();
+  await expect(page.getByRole("link", { name: /offering source/i }).first()).toBeVisible();
   await expect(page.getByRole("link", { name: "GPT-4.1", exact: true })).toBeVisible();
   await page.getByRole("link", { name: "Next page" }).click();
   await expect(page).toHaveURL(/page=2/);
@@ -52,6 +55,7 @@ test("global keyboard search opens, restores focus, and navigates to sourced mod
   await expect(page).toHaveURL(nano);
   await expect(page.getByRole("heading", { name: "GPT-4.1 nano", exact: true })).toBeVisible();
   await expect(page.getByText("Historical pricing · USD per 1M tokens")).toBeVisible();
+  await expect(page.getByText("Last updated", { exact: true })).toBeVisible();
   await expect(page.getByText("Unavailable", { exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "GPQA Diamond" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Offering source" })).toHaveAttribute("href", /developers\.openai\.com/);

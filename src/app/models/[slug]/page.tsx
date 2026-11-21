@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { cache } from "react";
 import { SourceLink } from "@/features/catalog/components/source-link";
-import { availability, capabilityNames, date, list, modalityNames, number } from "@/features/catalog/presentation";
+import { availability, capabilityNames, date, list, modalityNames, number, utcTime } from "@/features/catalog/presentation";
 import { lifecycles, slug } from "@/features/catalog/schemas/query";
 import { findModel } from "@/features/catalog/services/models";
 import { CompareToggle } from "@/features/comparison/components/selection";
@@ -31,6 +31,7 @@ export default async function ModelPage({ params }: PageProps<"/models/[slug]">)
           <p><Link className="text-link" href={`/labs/${model.family.lab.slug}`}>{model.family.lab.name}</Link> / {model.family.name}</p>
           <h1>{model.name}</h1>
           <span className="chip mt-3 inline-block">{lifecycles[model.lifecycle]}</span>
+          {model.recentlyAdded && <span className="chip ml-2 inline-block">New to Ryhme</span>}
         </div>
         <CompareToggle id={model.id} name={model.name} />
       </div>
@@ -38,6 +39,7 @@ export default async function ModelPage({ params }: PageProps<"/models/[slug]">)
         <section className="panel" aria-labelledby="specs">
           <h2 id="specs">Specifications</h2>
           <dl className="fact-list">
+            <div><dt>Last updated</dt><dd><time dateTime={model.updatedAt.toISOString()}>{utcTime(model.updatedAt)}</time></dd></div>
             <div><dt>Released</dt><dd>{date(model.releaseDate)}</dd></div>
             <div><dt>Context window</dt><dd>{number(model.contextTokens)}{model.contextTokens === null ? "" : " tokens"}</dd></div>
             <div><dt>Input modalities</dt><dd>{list(modalityNames(model.modalities, "input"))}</dd></div>
@@ -69,11 +71,12 @@ export default async function ModelPage({ params }: PageProps<"/models/[slug]">)
                 </div>
                 <p className="muted mt-2 break-all">{offer.externalModelId}</p>
                 {offer.contextOverride !== null && <p>Provider context limit {number(offer.contextOverride)} tokens</p>}
-                <p className="mt-2"><SourceLink url={offer.sourceUrl}>Offering source</SourceLink> · Observed {date(offer.observedAt)}</p>
+                <p className="mt-2"><SourceLink url={offer.sourceUrl}>Offering source</SourceLink> ({offer.source.name}) · Observed <time dateTime={offer.observedAt.toISOString()}>{utcTime(offer.observedAt)}</time></p>
+                {offer.catalogMissingSince && offer.availabilityStatus === "LISTED" && <p className="muted">Not seen in the latest catalog snapshot.</p>}
                 {offer.price ? <div className="mt-3">
                   <p className="font-semibold">Historical pricing · {offer.price.currency} per 1M tokens</p>
                   <p>Input {offer.price.inputPerMillion?.toString() ?? "Unknown"} · Output {offer.price.outputPerMillion?.toString() ?? "Unknown"}</p>
-                  <p className="muted"><SourceLink url={offer.price.sourceUrl}>Price source</SourceLink> · Observed {date(offer.price.observedAt)}</p>
+                  <p className="muted"><SourceLink url={offer.price.sourceUrl}>Price source</SourceLink> · Observed {utcTime(offer.price.observedAt)}</p>
                 </div> : <p className="muted mt-2">Pricing unknown.</p>}
               </li>)}
             </ul>}

@@ -1,6 +1,7 @@
 import "server-only";
 import { Prisma } from "@/generated/prisma/client";
 import { getDb } from "@/lib/db/client";
+import { isRecentlyAdded } from "../presentation";
 import type { CatalogQuery } from "../schemas/query";
 
 const latestPrice = {
@@ -11,6 +12,7 @@ const latestPrice = {
 export const offeringInclude = {
   provider: { select: { name: true, slug: true } },
   prices: latestPrice,
+  source: { select: { name: true } },
 } satisfies Prisma.OfferingInclude;
 
 const summaryInclude = {
@@ -40,12 +42,12 @@ type DetailRecord = Prisma.ModelVersionGetPayload<{ include: typeof detailInclud
 
 function summary(model: SummaryRecord) {
   const { offerings, family, id, slug, canonicalName, releaseDate, lifecycle, contextTokens,
-    modalities, capabilities, license, openWeights } = model;
+    modalities, capabilities, license, openWeights, updatedAt, createdAt } = model;
   return {
-    id, slug, name: canonicalName, releaseDate, lifecycle, contextTokens, modalities, capabilities, license, openWeights,
+    id, slug, name: canonicalName, releaseDate, lifecycle, contextTokens, modalities, capabilities, license, openWeights, updatedAt, recentlyAdded: isRecentlyAdded(createdAt, Date.now()),
     family: { name: family.name, slug: family.slug, lab: { name: family.lab.name, slug: family.lab.slug } },
-    offerings: offerings.map(({ id, provider, externalModelId, availabilityStatus, contextOverride, observedAt, sourceUrl, prices }) => ({
-      id, provider, externalModelId, availabilityStatus, contextOverride, observedAt, sourceUrl,
+    offerings: offerings.map(({ id, provider, externalModelId, availabilityStatus, contextOverride, observedAt, catalogMissingSince, sourceUrl, source, prices }) => ({
+      id, provider, externalModelId, availabilityStatus, contextOverride, observedAt, catalogMissingSince, sourceUrl, source,
       price: prices[0] ?? null,
     })),
   };
@@ -161,13 +163,15 @@ export async function listModels(query: CatalogQuery) {
 
 export async function catalogOptions() {
   const db = getDb();
-  const [families, labs, providers, licenses] = await Promise.all([
+  const [families, labs, providers, licenses, source] = await Promise.all([
     db.modelFamily.findMany({ select: { slug: true, name: true }, orderBy: { name: "asc" } }),
     db.lab.findMany({ select: { slug: true, name: true }, orderBy: { name: "asc" } }),
     db.provider.findMany({ select: { slug: true, name: true }, orderBy: { name: "asc" } }),
     db.modelVersion.findMany({
       select: { license: true }, distinct: ["license"], where: { license: { not: null } }, orderBy: { license: "asc" },
     }),
+    db.dataSource.findUnique({ where: { id: "openrouter" }, select: { catalogSyncedAt: true } }),
   ]);
-  return { families, labs, providers, licenses: licenses.flatMap(({ license }) => license ? [license] : []) };
+  const catalogSyncedAt = source?.catalogSyncedAt ?? null;
+  return { families, labs, providers, catalogSyncedAt, syncOverdue: catalogSyncedAt !== null && Date.now() - +catalogSyncedAt > 86_400_000, licenses: licenses.flatMap(({ license }) => license ? [license] : []) };
 }

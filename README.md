@@ -55,6 +55,20 @@ For broad catalog sync, run `npm run db:sync:openrouter` to preview against the 
 
 The importer uses the [OpenRouter public catalog](https://openrouter.ai/docs/api_reference/models) across output modalities. It deduplicates checkpoints by canonical slug, preserves each routable offering ID, and reuses exact reviewed seed identities. Author namespaces and conservative family mappings provide grouping when creator metadata has not been independently verified. Imported model metadata is an initial source observation. Listing freshness and daily base USD text-token prices are tracked separately. Non-token prices, lifecycle, release dates, licensing, and benchmarks are left unknown. Missing listings and conflicting identity mappings leave existing data intact. Review [OpenRouter terms](https://openrouter.ai/terms) before public redistribution.
 
+### Activate scheduled catalog sync
+
+The local workflow is gated by `RYHME_CATALOG_SYNC_ENABLED` and runs at 00:17, 06:17, 12:17, and 18:17 UTC. It also supports manual dispatch from `main` on `nitinane/Ryhme`. A workflow concurrency group and a PostgreSQL transaction lock prevent overlapping writes. The run stores last-seen observations and the last successful sync time. A catalog-managed listing must remain missing for at least 24 hours across usable snapshots before becoming unavailable. Large drops, duplicate identifiers, or identity conflicts suspend absence-based changes. Reappearing listings are restored. Missing price components retain their most recent known value when another component changes. The price history records gateway text-token rates and excludes other charges.
+
+After explicit approval:
+
+1. Revalidate the Neon `oneAtlas` development branch and review and apply the pending catalog sync migration there using the owner role. Verify existing observation dates still map to midnight UTC and check schema drift. The workflow never runs migrations.
+2. Provision the dedicated non-owner `ryhme_catalog_sync` login. Apply [catalog grants](scripts/catalog-sync-grants.sql) on that database. Verify the role has no elevated memberships, benchmark writes, deletes, or schema changes. Keep the password private.
+3. In `nitinane/Ryhme` Actions Secrets, configure `NEON_DEVELOPMENT_CATALOG_DIRECT_URL` for that role and direct development endpoint with `sslmode=verify-full`. The job checks endpoint, database, role, repository, branch, and trigger.
+4. Push the reviewed workflow to `main` with the gate unset. Verify CI and the skipped sync job. After activation approval, set the repository Actions variable `RYHME_CATALOG_SYNC_ENABLED` to `true`, manually dispatch, and check counts and timestamps before relying on the schedule. Unset the variable to pause future jobs.
+
+To test without Neon, use a fresh, migrated, seeded loopback database named `ryhme_test`. Grant the scheduler role the permissions in the SQL file with the database name changed to `ryhme_test`. Set `RYHME_SYNC_TEST_DATABASE_URL` to that role's loopback connection URL and run `npm test`. Integration fixtures write into the disposable database and use mocked OpenRouter snapshots.
+
+
 
 ## Engineering documents
 - `01_PRD.md`: product outcomes and scope

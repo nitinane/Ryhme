@@ -1,11 +1,12 @@
 import Form from "next/form";
 import Link from "next/link";
 import type { Metadata } from "next";
+import { SourceLink } from "@/features/catalog/components/source-link";
 import { FilterPanel } from "@/features/catalog/components/filter-panel";
 import { CompareToggle } from "@/features/comparison/components/selection";
 import { catalogOptions, listModels } from "@/features/catalog/services/models";
 import { capabilities, catalogQuery, lifecycles } from "@/features/catalog/schemas/query";
-import { availability, capabilityNames, date, number } from "@/features/catalog/presentation";
+import { availability, capabilityNames, date, number, utcTime } from "@/features/catalog/presentation";
 
 export const metadata: Metadata = { title: "Model catalog | Ryhme" };
 
@@ -30,6 +31,8 @@ export default async function ModelsPage({ searchParams }: PageProps<"/models">)
     !["page", "limit", "sort"].includes(key) && value !== undefined && value !== "").length;
   const [{ data, meta }, options] = await Promise.all([listModels(query), catalogOptions()]);
 
+  const syncedAt = options.catalogSyncedAt;
+
   function pageHref(page: number) {
     const params = new URLSearchParams();
     for (const [key, value] of Object.entries(raw)) {
@@ -44,6 +47,9 @@ export default async function ModelsPage({ searchParams }: PageProps<"/models">)
       <div className="page-heading">
         <h1>Model catalog</h1>
         <p>Search documented model versions and narrow by capabilities, context, or provider.</p>
+        <p className="text-sm">Last successful OpenRouter sync {syncedAt
+          ? <><time dateTime={syncedAt.toISOString()}>{utcTime(syncedAt)}</time>{options.syncOverdue && " · Sync overdue"}</>
+          : "· Awaiting first scheduled run"}</p>
       </div>
       <div className="catalog-layout">
         <FilterPanel active={active}>
@@ -97,12 +103,16 @@ export default async function ModelsPage({ searchParams }: PageProps<"/models">)
             const offer = model.offerings.find((item) =>
               (!query.provider || item.provider.slug === query.provider) && item.price?.inputPerMillion != null);
             const price = offer?.price;
+            const attributed = model.offerings.find((item) => item.provider.slug === query.provider) ?? model.offerings[0];
             return (
               <li className="model-card catalog-record" key={model.id}>
                 <div className="catalog-record-heading">
                   <div><p className="muted text-sm">{model.family.lab.name} / {model.family.name}</p>
                     <h3 className="mt-1"><Link className="model-link" href={`/models/${model.slug}`}>{model.name}</Link></h3></div>
-                  <span className="chip">{lifecycles[model.lifecycle]}</span>
+                  <div className="flex flex-wrap gap-1">
+                    <span className="chip">{lifecycles[model.lifecycle]}</span>
+                    {model.recentlyAdded && <span className="chip">New to Ryhme</span>}
+                  </div>
                 </div>
                 <dl className="card-specs">
                   <div><dt>Context</dt><dd>{number(model.contextTokens)}{model.contextTokens === null ? "" : " tokens"}</dd></div>
@@ -115,8 +125,12 @@ export default async function ModelsPage({ searchParams }: PageProps<"/models">)
                 </dl>
                 <div className="card-footer">
                   <span className="muted text-sm">{model.offerings.length
-                    ? model.offerings.map((offer) => `${offer.provider.name} · ${availability[offer.availabilityStatus]}`).join(" / ")
+                    ? model.offerings.map((offer) => `${offer.provider.name} · ${availability[offer.availabilityStatus]}${offer.catalogMissingSince && offer.availabilityStatus === "LISTED" ? " (not seen recently)" : ""}`).join(" / ")
                     : "Provider offerings unknown"}</span>
+                  <p className="muted text-xs break-words">
+                    Updated <time dateTime={model.updatedAt.toISOString()}>{utcTime(model.updatedAt)}</time>
+                    {attributed && <> · <SourceLink url={attributed.sourceUrl}>{attributed.source.name} offering source</SourceLink></>}
+                  </p>
                   <CompareToggle id={model.id} name={model.name} />
                 </div>
               </li>

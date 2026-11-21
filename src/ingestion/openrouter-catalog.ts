@@ -3,9 +3,10 @@ import { setTimeout as delay } from "node:timers/promises";
 import { z } from "zod";
 import { Prisma } from "../generated/prisma/client";
 
-const catalogUrl = "https://openrouter.ai/api/v1/models?output_modalities=all";
+export const catalogUrl = "https://openrouter.ai/api/v1/models?output_modalities=all";
 const homepage = "https://openrouter.ai/";
-const sourceId = "openrouter";
+export const openRouterSourceId = "openrouter";
+const sourceId = openRouterSourceId;
 const modelId = z.string().max(180).regex(/^[a-z0-9-]+\/[a-z0-9][a-z0-9_.-]*(?::[a-z0-9-]+)?$/);
 const listing = z.object({
   id: modelId,
@@ -17,7 +18,7 @@ const listing = z.object({
     output_modalities: z.array(z.string().max(30)).max(20).nullish(),
   }).nullish().catch(null),
   supported_parameters: z.array(z.string().max(80)).max(100).nullish().catch(null),
-  pricing: z.object({ prompt: z.unknown(), completion: z.unknown() }).nullish().catch(null),
+  pricing: z.object({ prompt: z.unknown().optional(), completion: z.unknown().optional() }).nullish().catch(null),
 });
 const responseSchema = z.object({
   data: z.array(z.unknown()).max(1_000),
@@ -112,8 +113,8 @@ function prepare(row: z.infer<typeof listing>) {
     familyName: family?.[1] ?? model,
     slug: stableSlug(canonical),
     name: row.name, context: row.context_length ?? null,
-    modalities: input || output
-      ? { ...(input ? { input } : {}), ...(output ? { output } : {}) } : undefined,
+    modalities: input?.length || output?.length
+      ? { ...(input?.length ? { input } : {}), ...(output?.length ? { output } : {}) } : undefined,
     capabilities: params ? [
       ...(params.includes("tools") ? ["tool-calling"] : []),
       ...(params.includes("structured_outputs") ? ["structured-outputs"] : []),
@@ -142,6 +143,10 @@ export function normalizeCatalog(raw: unknown[]) {
   }
   return {
     discovered: raw.length, rejected, duplicateIds,
+    seenIds: [...new Set(raw.flatMap((entry) => {
+      const parsed = z.object({ id: modelId }).safeParse(entry);
+      return parsed.success ? [parsed.data.id] : [];
+    }))],
     rows: [...rows.values()].sort((a, b) => Number(b.plain) - Number(a.plain)
       || Number(b.canonicalOnly) - Number(a.canonicalOnly) || a.externalModelId.localeCompare(b.externalModelId)),
   };
@@ -149,24 +154,27 @@ export function normalizeCatalog(raw: unknown[]) {
 
 type CatalogRow = ReturnType<typeof normalizeCatalog>["rows"][number];
 
-export async function catalogPlan(tx: Prisma.TransactionClient, rows: CatalogRow[], observedAt: Date) {
+export async function catalogPlan(tx: Prisma.TransactionClient, rows: CatalogRow[], observedAt: Date, live = false) {
   const [labs, families, models, offers, provider, source] = await Promise.all([
     tx.lab.findMany({ where: { slug: { in: rows.map((row) => row.labSlug) } }, select: { slug: true } }),
     tx.modelFamily.findMany({ where: { slug: { in: rows.map((row) => row.familySlug) } }, select: { slug: true, lab: { select: { slug: true } } } }),
     tx.modelVersion.findMany({ where: { slug: { in: rows.flatMap((row) => [row.slug, ...(row.reviewedSlug ? [row.reviewedSlug] : [])]) } },
-      select: { slug: true, family: { select: { slug: true } } } }),
+      select: { slug: true, family: { select: { slug: true } }, canonicalName: true, contextTokens: true, modalities: true, capabilities: true } }),
     tx.offering.findMany({ where: { provider: { slug: "openrouter" }, externalModelId: { in: rows.map((row) => row.externalModelId) } },
-      select: { externalModelId: true, sourceId: true, observedAt: true, availabilityStatus: true, model: { select: { slug: true } },
-        prices: { where: { sourceId, currency: "USD", observedAt: { gte: observedAt } }, select: { id: true }, take: 1 } } }),
+      select: { externalModelId: true, sourceId: true, sourceUrl: true, observedAt: true, availabilityStatus: true, model: { select: { slug: true } },
+        prices: { where: { sourceId, currency: "USD", ...(live ? {} : { observedAt: { gte: observedAt } }) },
+          orderBy: [{ observedAt: "desc" }, { id: "desc" }], select: { observedAt: true, inputPerMillion: true, outputPerMillion: true }, take: 1 } } }),
     tx.provider.findUnique({ where: { slug: "openrouter" }, select: { id: true } }),
     tx.dataSource.findUnique({ where: { id: sourceId }, select: { id: true } }),
   ]);
   const knownLabs = new Set(labs.map(({ slug }) => slug));
   const knownFamilies = new Map(families.map((family) => [family.slug, family.lab.slug]));
+  const existingModels = new Map(models.map((model) => [model.slug, model]));
   const knownModels = new Map(models.map((model) => [model.slug, model.family.slug]));
+  const processedModels = new Set<string>();
   const knownOffers = new Map(offers.map((offer) => [offer.externalModelId, offer]));
   const stats = { providers: Number(!provider), sources: Number(!source), labs: 0, families: 0, models: 0,
-    offerings: 0, refreshes: 0, observations: 0, prices: 0, conflicts: 0, unknownPrices: 0, unpricedListings: 0 };
+    offerings: 0, refreshes: 0, metadataUpdates: 0, restored: 0, observations: 0, prices: 0, conflicts: 0, unknownPrices: 0, unpricedListings: 0 };
   const actions = rows.flatMap((row) => {
     const reviewed = row.reviewedSlug && knownModels.has(row.reviewedSlug) ? row.reviewedSlug : undefined;
     const slug = reviewed ?? row.slug;
@@ -178,7 +186,9 @@ export async function catalogPlan(tx: Prisma.TransactionClient, rows: CatalogRow
       stats.conflicts++;
       return [];
     }
-    if (offer && (offer.sourceId !== sourceId || offer.availabilityStatus !== "LISTED" || offer.observedAt > observedAt)) return [];
+    const managed = offer?.sourceUrl === catalogUrl;
+    if (offer && (offer.sourceId !== sourceId || (!managed || !live) && offer.availabilityStatus !== "LISTED"
+      || offer.observedAt > observedAt)) return [];
     const insertModel = !knownModels.has(slug);
     if (insertModel) {
       if (!knownLabs.has(row.labSlug)) { knownLabs.add(row.labSlug); stats.labs++; }
@@ -188,17 +198,43 @@ export async function catalogPlan(tx: Prisma.TransactionClient, rows: CatalogRow
       stats.observations++;
     }
     if (!offer) stats.offerings++;
-    else if (offer.observedAt < observedAt) stats.refreshes++;
-    const insertPrice = (row.inputPrice !== null || row.outputPrice !== null) && !offer?.prices.length;
+    const refreshOffer = !!offer && offer.observedAt < observedAt && (!live || managed);
+    if (refreshOffer) stats.refreshes++;
+    if (refreshOffer && offer?.availabilityStatus !== "LISTED") stats.restored++;
+    const oldModel = existingModels.get(slug);
+    let metadata: Prisma.ModelVersionUpdateInput | undefined;
+    if (live && !reviewed && oldModel && row.plain && !processedModels.has(slug)) {
+      const previous = oldModel.modalities && typeof oldModel.modalities === "object" && !Array.isArray(oldModel.modalities)
+        ? oldModel.modalities : {};
+      const merged = row.modalities ? { ...previous, ...row.modalities } : undefined;
+      metadata = {
+        ...(row.name !== oldModel.canonicalName ? { canonicalName: row.name } : {}),
+        ...(row.context !== null && row.context !== oldModel.contextTokens ? { contextTokens: row.context } : {}),
+        ...(merged && (Object.keys(merged).some((key) => JSON.stringify(merged[key as keyof typeof merged]) !== JSON.stringify(previous[key])))
+          ? { modalities: merged } : {}),
+        ...(row.capabilities?.length && JSON.stringify(row.capabilities) !== JSON.stringify(oldModel.capabilities)
+          ? { capabilities: row.capabilities } : {}),
+      };
+      if (!Object.keys(metadata).length) metadata = undefined;
+      else stats.metadataUpdates++;
+    }
+    processedModels.add(slug);
+    const prior = offer?.prices[0];
+    const inputPrice = row.inputPrice ?? (live ? prior?.inputPerMillion ?? null : null);
+    const outputPrice = row.outputPrice ?? (live ? prior?.outputPerMillion ?? null : null);
+    const hasPrice = row.inputPrice !== null || row.outputPrice !== null;
+    const insertPrice = hasPrice && (!prior || (live && prior.observedAt < observedAt
+      && (inputPrice?.toString() !== prior.inputPerMillion?.toString()
+        || outputPrice?.toString() !== prior.outputPerMillion?.toString())));
     if (insertPrice) stats.prices++;
     if (row.inputPrice === null || row.outputPrice === null) stats.unknownPrices++;
     if (row.inputPrice === null && row.outputPrice === null) stats.unpricedListings++;
-    return [{ row, slug, insertModel, insertPrice, insertOffer: !offer, refreshOffer: !!offer && offer.observedAt < observedAt }];
+    return [{ row, slug, insertModel, insertPrice, inputPrice, outputPrice, insertOffer: !offer, refreshOffer, metadata }];
   });
   return { stats, actions };
 }
 
-export async function syncCatalog(tx: Prisma.TransactionClient, plan: Awaited<ReturnType<typeof catalogPlan>>, observedAt: Date) {
+export async function syncCatalog(tx: Prisma.TransactionClient, plan: Awaited<ReturnType<typeof catalogPlan>>, observedAt: Date, live = false) {
   await tx.dataSource.upsert({ where: { id: sourceId }, update: {}, create: {
     id: sourceId, name: "OpenRouter", homepage, sourceType: "OFFICIAL",
     trustPolicy: "Gateway catalog listings and advertised token prices. Does not establish model release date, lifecycle, or benchmark performance.",
@@ -223,6 +259,9 @@ export async function syncCatalog(tx: Prisma.TransactionClient, plan: Awaited<Re
     slug, canonicalName: row.plain ? row.name : row.key, familyId: familyIds.get(row.familySlug)!,
     contextTokens: row.context, modalities: row.modalities, capabilities: row.capabilities,
   })) });
+  for (const { slug, metadata } of plan.actions) {
+    if (metadata) await tx.modelVersion.update({ where: { slug }, data: metadata });
+  }
   const modelIds = new Map((await tx.modelVersion.findMany({
     where: { slug: { in: [...new Set(plan.actions.map(({ slug }) => slug))] } }, select: { slug: true, id: true },
   })).map(({ slug, id }) => [slug, id]));
@@ -237,18 +276,19 @@ export async function syncCatalog(tx: Prisma.TransactionClient, plan: Awaited<Re
   const refresh = plan.actions.filter(({ refreshOffer }) => refreshOffer).map(({ row }) => row);
   if (refresh.length) await tx.$executeRaw`
     UPDATE "Offering" AS o
-    SET "observedAt" = ${observedAt}, "contextOverride" = COALESCE(v.context, o."contextOverride")
+    SET "observedAt" = ${observedAt}, "catalogMissingSince" = NULL, "availabilityStatus" = 'LISTED', "contextOverride" = COALESCE(v.context, o."contextOverride")
     FROM (VALUES ${Prisma.join(refresh.map((row) => Prisma.sql`(${row.externalModelId}, ${row.context}::integer)`))}) AS v(external, context)
     WHERE o."providerId" = ${provider.id} AND o."externalModelId" = v.external
-      AND o."sourceId" = ${sourceId} AND o."availabilityStatus" = 'LISTED' AND o."observedAt" < ${observedAt}
+      AND o."sourceId" = ${sourceId} AND o."observedAt" < ${observedAt}
+      ${live ? Prisma.sql`AND o."sourceUrl" = ${catalogUrl}` : Prisma.sql`AND o."availabilityStatus" = 'LISTED'`}
   `;
   const priced = plan.actions.filter(({ insertPrice }) => insertPrice);
   const offerIds = new Map((await tx.offering.findMany({
     where: { providerId: provider.id, externalModelId: { in: priced.map(({ row }) => row.externalModelId) } },
     select: { externalModelId: true, id: true },
   })).map(({ externalModelId, id }) => [externalModelId, id]));
-  await tx.priceObservation.createMany({ data: priced.map(({ row }) => ({
+  await tx.priceObservation.createMany({ data: priced.map(({ row, inputPrice, outputPrice }) => ({
     offeringId: offerIds.get(row.externalModelId)!, sourceId, sourceUrl: catalogUrl, currency: "USD", observedAt,
-    inputPerMillion: row.inputPrice, outputPerMillion: row.outputPrice,
+    inputPerMillion: inputPrice, outputPerMillion: outputPrice,
   })) });
 }
