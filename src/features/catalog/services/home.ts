@@ -8,7 +8,7 @@ export async function homeCatalog() {
     const db = getDb();
     const [models, labs, providers, benchmarks, latest, source] = await Promise.all([
       db.modelVersion.count(), db.lab.count(), db.provider.count(),
-      db.benchmark.count({ where: { results: { some: { verifiedStatus: "VERIFIED" } } } }),
+      db.benchmark.count({ where: { results: { some: { verifiedStatus: "VERIFIED", supersededAt: null } } } }),
       db.$queryRaw<{
         id: string; slug: string; canonicalName: string; contextTokens: number | null;
         createdAt: Date; labName: string;

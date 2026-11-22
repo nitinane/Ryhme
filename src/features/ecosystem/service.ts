@@ -32,7 +32,8 @@ export async function findLab(slug: string) {
       orderBy: [{ name: "asc" }, { id: "asc" }],
       include: { versions: {
         select: {
-          id: true, slug: true, canonicalName: true, lifecycle: true, capabilities: true,
+            id: true, slug: true, canonicalName: true, lifecycle: true, capabilities: true, releaseDate: true,
+            _count: { select: { results: { where: { verifiedStatus: "VERIFIED", supersededAt: null } } } },
           offerings: { select: { provider: { select: { name: true, slug: true } } }, distinct: ["providerId"] },
         },
         orderBy: [{ canonicalName: "asc" }, { id: "asc" }],

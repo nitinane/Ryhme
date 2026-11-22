@@ -73,6 +73,8 @@ export default async function ModelPage({ params }: PageProps<"/models/[slug]">)
                 </div>
                 <p className="muted mt-2 break-all">{offer.externalModelId}</p>
                 {offer.contextOverride !== null && <p>Provider context limit {number(offer.contextOverride)} tokens</p>}
+                {offer.inputTokenLimit !== null && <p>Provider input limit {number(offer.inputTokenLimit)} tokens</p>}
+                {offer.outputTokenLimit !== null && <p>Provider output limit {number(offer.outputTokenLimit)} tokens</p>}
                 <p className="mt-2"><SourceLink url={offer.sourceUrl}>Offering source</SourceLink> ({offer.source.name}) · Observed <time dateTime={offer.observedAt.toISOString()}>{utcTime(offer.observedAt)}</time></p>
                 {offer.catalogMissingSince && offer.availabilityStatus === "LISTED" && <p className="muted">Not seen in the latest catalog snapshot.</p>}
                 {offer.price ? <div className="mt-3">
@@ -85,7 +87,8 @@ export default async function ModelPage({ params }: PageProps<"/models/[slug]">)
         </section>
         <section className="panel" aria-labelledby="benchmarks">
           <h2 id="benchmarks">Benchmark evidence</h2>
-          {model.results.length === 0 ? <p className="muted mt-2">No benchmark scores reported for this version.</p> :
+          {model.verifiedResults === 0 && <p className="muted mt-2">Unranked · No verified benchmark scores for this version.</p>}
+          {model.results.length > 0 &&
             <ul className="detail-list">
               {model.results.map((result) => <li key={result.id}>
                 <h3>{result.benchmark.name}</h3>
@@ -101,6 +104,13 @@ export default async function ModelPage({ params }: PageProps<"/models/[slug]">)
         </section>
         <section className="panel" aria-labelledby="sources">
           <h2 id="sources">Sources and freshness</h2>
+          {model.identities.length > 0 && <ul className="detail-list">
+            {model.identities.map(identity => <li key={JSON.stringify([identity.sourceId, identity.externalId, identity.revision])}>
+              <p>{identity.source.name} · <code className="break-all">{identity.externalId}</code></p>
+              <p className="muted text-sm">Revision <code className="break-all">{identity.revision}</code>
+                {identity.source.catalogSyncedAt && <> · Source synced {utcTime(identity.source.catalogSyncedAt)}</>}</p>
+            </li>)}
+          </ul>}
           {model.sources.length === 0 ? <p className="muted mt-2">No source observations recorded.</p> :
             <ul className="detail-list">
               {model.sources.map((source) => <li key={source.id}>

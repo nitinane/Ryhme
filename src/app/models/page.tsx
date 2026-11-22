@@ -143,7 +143,7 @@ export default async function ModelsPage({ searchParams }: PageProps<"/models">)
                       <Link className="model-link" href={`/models/${model.slug}`}>{model.name}</Link>
                       <span className="catalog-lab">{model.family.lab.name}{model.recentlyAdded && <small>New to Ryhme</small>}</span>
                     </th>
-                    <td>{model.family.name}</td>
+                    <td>{model.family.name}<p className="muted text-xs">{model.verifiedResults ? "Verified benchmark evidence" : "Unranked"}</p></td>
                     <td className="catalog-number">{model.contextTokens == null ? "—" : number(model.contextTokens)}</td>
                     <td className="catalog-number">{price?.inputPerMillion == null ? "—" : `${price.currency} ${price.inputPerMillion}`}</td>
                     <td className="catalog-number">{price?.outputPerMillion == null ? "—" : `${price.currency} ${price.outputPerMillion}`}</td>

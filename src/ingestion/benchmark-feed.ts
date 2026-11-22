@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { lockSource } from "./catalog-refresh";
 import { Prisma } from "../generated/prisma/client";
 import { rankingCategories } from "../features/benchmarks/categories";
 import { slug } from "../features/catalog/schemas/query";
@@ -15,7 +16,9 @@ const benchmarkShape = z.object({
   methodology: z.string().min(1).max(2000), version: z.string().min(1).max(120), sourceUrl: https,
 });
 const evidenceShape = z.object({
-  benchmarkSlug: slug, modelSlug: slug.nullable(), score, evaluatedAt: dateOnly, publishedAt: dateOnly,
+  benchmarkSlug: slug, modelSlug: slug.nullable(),
+  checkpoint: z.object({ sourceId: slug, externalId: z.string().min(1).max(180), revision: z.string().min(1).max(180) }).optional(),
+  replacesRevision: z.string().regex(/^(?:[a-f0-9]{64})?$/).optional(), score, evaluatedAt: dateOnly, publishedAt: dateOnly,
   evaluationKey: z.string().min(1).max(120), methodologyVersion: z.string().min(1).max(120),
   evaluationOrigin: z.enum(["INDEPENDENT", "PUBLISHER"]), datasetRevision: z.string().min(1).max(200).nullable(),
   evaluationConfig: z.string().min(1).max(200).nullable(), sourceUrl: https,
@@ -36,13 +39,19 @@ const keyFor = ({ benchmarkId, modelVersionId, evaluationKey }: ResultKey) =>
   JSON.stringify([benchmarkId, modelVersionId, evaluationKey]);
 const day = (value: Date | null) => value?.toISOString().slice(0, 10) ?? null;
 
-export async function ingestBenchmarkFeed(tx: Prisma.TransactionClient, input: BenchmarkFeed, observedAt: Date, apply: boolean, minimumCohortModels = 2) {
+export async function ingestBenchmarkFeed(tx: Prisma.TransactionClient, input: BenchmarkFeed, observedAt: Date, apply: boolean, minimumCohortModels = 2, sourceVersion?: string) {
   const { source, benchmarks, evidence, checksum } = feedShape.parse(input);
+  if (apply) await lockSource(tx, source.id);
+  const snapshotKey = sourceVersion ? { sourceId: source.id, kind: "benchmark", version: sourceVersion } : null;
+  const snapshot = snapshotKey && await tx.sourceSnapshot.findUnique({ where: { sourceId_kind_version: snapshotKey } });
+  if (snapshot && snapshot.checksum !== checksum) throw new Error("Published source version changed checksum.");
+  const latest = snapshot && await tx.sourceSnapshot.findFirst({ where: { sourceId: source.id, kind: "benchmark" }, orderBy: { observedAt: "desc" } });
+  const replay = snapshot && latest?.version === snapshot.version;
   const definitions = new Map(benchmarks.map((benchmark) => [benchmark.slug, benchmark]));
   if (definitions.size !== benchmarks.length) throw new Error("Duplicate benchmark definitions.");
   for (const row of evidence) {
     const definition = definitions.get(row.benchmarkSlug);
-    if (!definition || (definition.unit === "%" && (new Prisma.Decimal(row.score).lt(0) || new Prisma.Decimal(row.score).gt(100)))) {
+    if ((row.replacesRevision !== undefined && !sourceVersion) || !definition || (definition.unit === "%" && (new Prisma.Decimal(row.score).lt(0) || new Prisma.Decimal(row.score).gt(100)))) {
       throw new Error("Unknown benchmark definition or score outside its units.");
     }
   }
@@ -59,8 +68,18 @@ export async function ingestBenchmarkFeed(tx: Prisma.TransactionClient, input: B
       throw new Error("Conflicting benchmark definition. Use a distinct versioned identity.");
     }
   }
+  const checkpointRows = await tx.catalogIdentity.findMany({
+    where: { OR: evidence.flatMap(row => row.checkpoint ? [row.checkpoint] : []) },
+    select: { sourceId: true, externalId: true, revision: true, modelVersionId: true },
+  });
+  const identityKey = (item: { sourceId: string; externalId: string; revision: string }) =>
+    JSON.stringify([item.sourceId, item.externalId, item.revision]);
+  const checkpointIds = new Map(checkpointRows.map(row => [identityKey(row), row.modelVersionId]));
   const matched = evidence.flatMap((row) => {
-    const modelVersionId = row.modelSlug && modelIds.get(row.modelSlug);
+    const sourceMatch = row.checkpoint && checkpointIds.get(identityKey(row.checkpoint));
+    const slugMatch = row.modelSlug && modelIds.get(row.modelSlug);
+    if (sourceMatch && slugMatch && sourceMatch !== slugMatch) throw new Error("Conflicting benchmark checkpoint identities.");
+    const modelVersionId = sourceMatch || slugMatch;
     return modelVersionId ? [{ row, modelVersionId }] : [];
   });
   const duplicate = new Set<string>();
@@ -82,12 +101,10 @@ export async function ingestBenchmarkFeed(tx: Prisma.TransactionClient, input: B
     const key = comparisonKey(row);
     cohortCounts.set(key, (cohortCounts.get(key) ?? 0) + 1);
   }
-  const candidates = matched.filter(({ row }) => cohortCounts.get(comparisonKey(row))! >= minimumCohortModels);
-  const required = benchmarks.filter((definition) => candidates.some(({ row }) => row.benchmarkSlug === definition.slug));
 
   const benchmarkIds = new Map(existingDefinitions.map(({ slug, id }) => [slug, id]));
   const previous = await tx.benchmarkResult.findMany({
-    where: { sourceId: source.id, benchmarkId: { in: [...benchmarkIds.values()] }, evaluationKey: { in: [...new Set(matched.map(({ row }) => row.evaluationKey))] } },
+    where: { sourceId: source.id, supersededAt: null, benchmarkId: { in: [...benchmarkIds.values()] }, evaluationKey: { in: [...new Set(matched.map(({ row }) => row.evaluationKey))] } },
   });
   for (const result of previous) {
     const slug = existingDefinitions.find(({ id }) => id === result.benchmarkId)!.slug;
@@ -97,36 +114,75 @@ export async function ingestBenchmarkFeed(tx: Prisma.TransactionClient, input: B
     }
   }
   const prior = new Map(previous.map((row) => [keyFor(row), row]));
+  if (sourceVersion) {
+    const slugById = new Map(existingDefinitions.map(item => [item.id, item.slug]));
+    const members = new Map<string, Set<string>>();
+    for (const row of previous.filter(item => item.verifiedStatus === "VERIFIED")) {
+      const group = JSON.stringify([slugById.get(row.benchmarkId), row.evaluationKey, day(row.evaluatedAt)]);
+      const models = members.get(group) ?? new Set<string>();
+      models.add(row.modelVersionId);
+      members.set(group, models);
+    }
+    for (const { row, modelVersionId } of matched) {
+      const group = comparisonKey(row);
+      const models = members.get(group) ?? new Set<string>();
+      models.add(modelVersionId);
+      members.set(group, models);
+      cohortCounts.set(group, models.size);
+    }
+  }
+  const candidates = matched.filter(({ row }) => cohortCounts.get(comparisonKey(row))! >= minimumCohortModels);
+  const required = benchmarks.filter((definition) => candidates.some(({ row }) => row.benchmarkSlug === definition.slug));
+  const replaced = new Map<string, string>();
   const validatedAdditions = matched.filter(({ row, modelVersionId }) => {
     const benchmarkId = benchmarkIds.get(row.benchmarkSlug);
     const existing = benchmarkId && prior.get(keyFor({ benchmarkId, modelVersionId, evaluationKey: row.evaluationKey }));
-    if (!existing) return true;
+    if (snapshot) return !!replay && !existing && row.replacesRevision === undefined;
+    if (!existing) {
+      if (row.replacesRevision !== undefined) throw new Error("Correction target does not exist.");
+      return true;
+    }
     if (!existing.score.equals(row.score) || day(existing.evaluatedAt) !== row.evaluatedAt ||
       existing.sourceUrl !== row.sourceUrl || existing.verifiedStatus !== "VERIFIED") {
-      throw new Error("Stored result conflicts with immutable benchmark evidence.");
+      if (!sourceVersion || row.replacesRevision !== existing.revision || existing.verifiedStatus !== "VERIFIED"
+        || day(existing.evaluatedAt) !== row.evaluatedAt) {
+        throw new Error("Stored result conflicts with immutable benchmark evidence.");
+      }
+      replaced.set(keyFor({ benchmarkId: row.benchmarkSlug, modelVersionId, evaluationKey: row.evaluationKey }), existing.id);
+      return true;
     }
     return false;
   });
   const additions = validatedAdditions.filter(({ row }) => cohortCounts.get(comparisonKey(row))! >= minimumCohortModels);
+  const corrections = additions.flatMap(({ row, modelVersionId }) => replaced.get(keyFor({ benchmarkId: row.benchmarkSlug, modelVersionId, evaluationKey: row.evaluationKey })) ?? []);
   const stats = {
     source: source.name, matchedModels: new Set(candidates.map(({ modelVersionId }) => modelVersionId)).size,
     unknownResults: evidence.length - matched.length, insufficientResults: matched.length - candidates.length, newResults: additions.length,
+    corrections: corrections.length,
     existingResults: candidates.length - additions.length,
     newBenchmarks: required.filter(({ slug }) => !benchmarkIds.has(slug)).length,
   };
-  if (!apply || !additions.length) return stats;
+  if (!apply || (snapshot && !replay) || (!additions.length && !snapshotKey)) return stats;
+  const sourceRecord = await tx.dataSource.findUnique({ where: { id: source.id } });
+  if (sourceVersion && sourceRecord?.benchmarkSyncedAt && +observedAt <= +sourceRecord.benchmarkSyncedAt) {
+    if (snapshot && !additions.length) return stats;
+    throw new Error("Stale benchmark observation.");
+  }
 
   await tx.dataSource.upsert({
-    where: { id: source.id }, update: {},
+    where: { id: source.id }, update: { benchmarkSyncedAt: observedAt },
     create: { id: source.id, name: source.name, homepage: source.homepage, sourceType: "BENCHMARK",
-      trustPolicy: `${source.license}. License: ${source.licenseUrl}. Pinned, attributed aggregate scores.` },
+      benchmarkSyncedAt: observedAt, trustPolicy: `${source.license}. License: ${source.licenseUrl}. Pinned, attributed aggregate scores.` },
   });
+  if (snapshotKey && !snapshot) await tx.sourceSnapshot.create({ data: { ...snapshotKey, checksum, observedAt } });
+  if (!additions.length) return stats;
   for (const definition of required) {
     if (!benchmarkIds.has(definition.slug)) {
       const item = await tx.benchmark.create({ data: { ...definition, sourceId: source.id } });
       benchmarkIds.set(definition.slug, item.id);
     }
   }
+  if (corrections.length) await tx.benchmarkResult.updateMany({ where: { id: { in: corrections } }, data: { supersededAt: observedAt } });
   const inserted = await tx.benchmarkResult.createManyAndReturn({
     data: additions.map(({ row, modelVersionId }) => ({
       benchmarkId: benchmarkIds.get(row.benchmarkSlug)!, modelVersionId, sourceId: source.id,
@@ -134,7 +190,7 @@ export async function ingestBenchmarkFeed(tx: Prisma.TransactionClient, input: B
       publishedAt: row.publishedAt ? new Date(row.publishedAt) : null,
       methodologyVersion: row.methodologyVersion, evaluationOrigin: row.evaluationOrigin,
       evaluationKey: row.evaluationKey, datasetRevision: row.datasetRevision, evaluationConfig: row.evaluationConfig,
-      observedAt, sourceUrl: row.sourceUrl, verifiedStatus: "VERIFIED",
+      observedAt, sourceUrl: row.sourceUrl, verifiedStatus: "VERIFIED", revision: sourceVersion ? checksum : "",
     })),
     select: { id: true, sourceUrl: true },
   });

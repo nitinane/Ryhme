@@ -75,6 +75,7 @@ model ModelVersion {
   updatedAt     DateTime @updatedAt
   offerings     Offering[]
   results       BenchmarkResult[]
+  identities CatalogIdentity[]
 
   @@index([familyId, lifecycle])
   @@index([contextTokens])
@@ -100,6 +101,8 @@ model Offering {
   externalModelId    String
   availabilityStatus Availability @default(UNKNOWN)
   contextOverride    Int?
+  inputTokenLimit    Int?
+  outputTokenLimit   Int?
   observedAt         DateTime @db.Timestamptz(3)
   catalogMissingSince DateTime? @db.Timestamptz(3)
   sourceId           String
@@ -163,13 +166,15 @@ model BenchmarkResult {
   observedAt         DateTime? @db.Timestamptz(3)
   evaluationKey      String
   verifiedStatus     VerificationStatus @default(UNVERIFIED)
+  revision           String @default("")
+  supersededAt       DateTime? @db.Timestamptz(3)
   sourceId           String
   sourceUrl          String
   benchmark          Benchmark @relation(fields: [benchmarkId], references: [id], onDelete: Restrict)
   model              ModelVersion @relation(fields: [modelVersionId], references: [id], onDelete: Restrict)
   source             DataSource @relation(fields: [sourceId], references: [id], onDelete: Restrict)
 
-  @@unique([benchmarkId, modelVersionId, sourceId, evaluationKey])
+  @@unique([benchmarkId, modelVersionId, sourceId, evaluationKey, revision])
   @@index([benchmarkId, score])
   @@index([benchmarkId, verifiedStatus, sourceId, evaluationKey, methodologyVersion, evaluatedAt], map: "BenchmarkResult_cohort_idx")
   @@index([modelVersionId])
@@ -182,11 +187,15 @@ model DataSource {
   sourceType   String
   trustPolicy  String
   catalogSyncedAt DateTime? @db.Timestamptz(3)
+  catalogEtag String?
+  benchmarkSyncedAt DateTime? @db.Timestamptz(3)
   observations SourceObservation[]
   offerings    Offering[]
   prices       PriceObservation[]
   benchmarks   Benchmark[]
   results      BenchmarkResult[]
+  identities CatalogIdentity[]
+  snapshots SourceSnapshot[]
 }
 
 model SourceObservation {
@@ -203,4 +212,29 @@ model SourceObservation {
 
   @@unique([sourceId, entityType, entityId, field, sourceUrl, observedAt])
   @@index([entityType, entityId])
+}
+
+model CatalogIdentity {
+  sourceId       String
+  externalId     String
+  revision       String
+  modelVersionId String
+  source         DataSource @relation(fields: [sourceId], references: [id], onDelete: Restrict)
+  model          ModelVersion @relation(fields: [modelVersionId], references: [id], onDelete: Restrict)
+
+  @@id([sourceId, externalId, revision])
+  @@index([modelVersionId])
+}
+
+model SourceSnapshot {
+  sourceId   String
+  kind       String
+  version    String
+  checksum   String
+  observedAt DateTime @db.Timestamptz(3)
+  modelCount Int?
+  aliases    Json?
+  source     DataSource @relation(fields: [sourceId], references: [id], onDelete: Restrict)
+
+  @@id([sourceId, kind, version])
 }

@@ -32,6 +32,7 @@ export default async function LabPage({ params }: PageProps<"/labs/[slug]">) {
             <li key={model.id}>
               <Link className="text-link" href={`/models/${model.slug}`}>{model.canonicalName}</Link>
               <p className="muted text-sm">{lifecycles[model.lifecycle]} · {list(capabilityNames(model.capabilities))}</p>
+              <p className="muted text-xs">Released {date(model.releaseDate)} · {model._count.results ? "Verified benchmark evidence" : "Unranked"}</p>
               {model.offerings.length > 0 && <div className="flex flex-wrap gap-2 text-sm">{model.offerings.map(({ provider }) => (
                 <Link key={provider.slug} className="text-link" href={`/providers/${provider.slug}`}>{provider.name}</Link>
               ))}</div>}

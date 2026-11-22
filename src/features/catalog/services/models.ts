@@ -18,6 +18,7 @@ export const offeringInclude = {
 const summaryInclude = {
   family: { include: { lab: true } },
   offerings: { include: offeringInclude, orderBy: [{ availabilityStatus: "asc" }, { id: "asc" }] },
+  _count: { select: { results: { where: { verifiedStatus: "VERIFIED", supersededAt: null } } } },
 } satisfies Prisma.ModelVersionInclude;
 
 const detailInclude = {
@@ -33,9 +34,11 @@ const detailInclude = {
     },
   },
   results: {
+    where: { supersededAt: null },
     include: { benchmark: true, source: { select: { name: true } } },
     orderBy: [{ benchmarkId: "asc" }, { evaluatedAt: { sort: "desc", nulls: "last" } }, { id: "asc" }],
   },
+  identities: { include: { source: { select: { name: true, catalogSyncedAt: true } } }, orderBy: { sourceId: "asc" } },
 } satisfies Prisma.ModelVersionInclude;
 
 type SummaryRecord = Prisma.ModelVersionGetPayload<{ include: typeof summaryInclude }>;
@@ -47,8 +50,9 @@ function summary(model: SummaryRecord) {
   return {
     id, slug, name: canonicalName, releaseDate, lifecycle, contextTokens, modalities, capabilities, license, openWeights, updatedAt, recentlyAdded: isRecentlyAdded(createdAt, Date.now()),
     family: { name: family.name, slug: family.slug, lab: { name: family.lab.name, slug: family.lab.slug } },
-    offerings: offerings.map(({ id, provider, externalModelId, availabilityStatus, contextOverride, observedAt, catalogMissingSince, sourceUrl, source, prices }) => ({
-      id, provider, externalModelId, availabilityStatus, contextOverride, observedAt, catalogMissingSince, sourceUrl, source,
+    verifiedResults: model._count.results,
+    offerings: offerings.map(({ id, provider, externalModelId, availabilityStatus, contextOverride, inputTokenLimit, outputTokenLimit, observedAt, catalogMissingSince, sourceUrl, source, prices }) => ({
+      id, provider, externalModelId, availabilityStatus, contextOverride, inputTokenLimit, outputTokenLimit, observedAt, catalogMissingSince, sourceUrl, source,
       price: prices[0] ?? null,
     })),
   };
@@ -71,6 +75,7 @@ async function withEvidence(models: DetailRecord[]) {
     ...summary(model),
     priceHistory: model.offerings.map(({ id, provider, externalModelId, prices }) => ({ id, provider, externalModelId, prices })),
     versions: model.family.versions,
+    identities: model.identities,
     results: model.results,
     sources: evidence.filter(({ entityId, entityType }) =>
       (entityType === "ModelVersion" && entityId === model.id)

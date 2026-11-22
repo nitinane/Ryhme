@@ -91,6 +91,12 @@ export function stableSlug(value: string) {
   return `or-${value.replace(/[^a-z0-9]+/g, "-").slice(0, 95).replace(/-+$/, "")}-${hash}`;
 }
 
+export function exactRouterSlugs(value: string) {
+  const compact = value.replace(/-(\d{4})-(\d{2})-(\d{2})$/, "-$1$2$3");
+  const expanded = value.replace(/-(\d{4})(\d{2})(\d{2})$/, "-$1-$2-$3");
+  return [...new Set([value, compact, expanded])].map(stableSlug);
+}
+
 function prepare(row: z.infer<typeof listing>) {
   const canonical = (row.canonical_slug ?? row.id).split(":")[0];
   const [author, model] = canonical.split("/");
@@ -158,8 +164,8 @@ export async function catalogPlan(tx: Prisma.TransactionClient, rows: CatalogRow
   const [labs, families, models, offers, provider, source] = await Promise.all([
     tx.lab.findMany({ where: { slug: { in: rows.map((row) => row.labSlug) } }, select: { slug: true } }),
     tx.modelFamily.findMany({ where: { slug: { in: rows.map((row) => row.familySlug) } }, select: { slug: true, lab: { select: { slug: true } } } }),
-    tx.modelVersion.findMany({ where: { slug: { in: rows.flatMap((row) => [row.slug, ...(row.reviewedSlug ? [row.reviewedSlug] : [])]) } },
-      select: { slug: true, family: { select: { slug: true } }, canonicalName: true, contextTokens: true, modalities: true, capabilities: true } }),
+    tx.modelVersion.findMany({ where: { slug: { in: rows.flatMap((row) => [...exactRouterSlugs(row.key), ...(row.reviewedSlug ? [row.reviewedSlug] : [])]) } },
+      select: { id: true, slug: true, family: { select: { slug: true, lab: { select: { slug: true } } } }, canonicalName: true, contextTokens: true, modalities: true, capabilities: true } }),
     tx.offering.findMany({ where: { provider: { slug: "openrouter" }, externalModelId: { in: rows.map((row) => row.externalModelId) } },
       select: { externalModelId: true, sourceId: true, sourceUrl: true, observedAt: true, availabilityStatus: true, model: { select: { slug: true } },
         prices: { where: { sourceId, currency: "USD", ...(live ? {} : { observedAt: { gte: observedAt } }) },
@@ -170,6 +176,11 @@ export async function catalogPlan(tx: Prisma.TransactionClient, rows: CatalogRow
   const knownLabs = new Set(labs.map(({ slug }) => slug));
   const knownFamilies = new Map(families.map((family) => [family.slug, family.lab.slug]));
   const existingModels = new Map(models.map((model) => [model.slug, model]));
+  const protectedModels = new Set((await tx.sourceObservation.findMany({
+    where: { entityType: "ModelVersion", entityId: { in: models.map(model => model.id) },
+      field: "exact checkpoint identity", verificationStatus: "VERIFIED", sourceId: { not: sourceId } },
+    select: { entityId: true },
+  })).map(row => row.entityId));
   const knownModels = new Map(models.map((model) => [model.slug, model.family.slug]));
   const processedModels = new Set<string>();
   const knownOffers = new Map(offers.map((offer) => [offer.externalModelId, offer]));
@@ -177,11 +188,22 @@ export async function catalogPlan(tx: Prisma.TransactionClient, rows: CatalogRow
     offerings: 0, refreshes: 0, metadataUpdates: 0, restored: 0, observations: 0, prices: 0, conflicts: 0, unknownPrices: 0, unpricedListings: 0 };
   const actions = rows.flatMap((row) => {
     const reviewed = row.reviewedSlug && knownModels.has(row.reviewedSlug) ? row.reviewedSlug : undefined;
-    const slug = reviewed ?? row.slug;
+    const firstParty = exactRouterSlugs(row.key).slice(1).filter(slug => {
+      const candidate = existingModels.get(slug);
+      return candidate && protectedModels.has(candidate.id) && candidate.family.lab.slug === row.labSlug;
+    });
+    if (firstParty.length > 1 || (firstParty.length && (knownModels.has(row.slug) || reviewed))) {
+      stats.conflicts++;
+      return [];
+    }
+    const slug = reviewed ?? firstParty[0] ?? row.slug;
     const offer = knownOffers.get(row.externalModelId);
     const familyLab = knownFamilies.get(row.familySlug);
     const modelFamily = knownModels.get(slug);
-    if ((offer && offer.model.slug !== slug) || (!reviewed && modelFamily && modelFamily !== row.familySlug)
+    const oldModel = existingModels.get(slug);
+    const protectedIdentity = oldModel && protectedModels.has(oldModel.id);
+    if ((offer && offer.model.slug !== slug) || (!reviewed && modelFamily && modelFamily !== row.familySlug
+      && !(protectedIdentity && oldModel.family.lab.slug === row.labSlug))
       || (familyLab && familyLab !== row.labSlug)) {
       stats.conflicts++;
       return [];
@@ -201,9 +223,8 @@ export async function catalogPlan(tx: Prisma.TransactionClient, rows: CatalogRow
     const refreshOffer = !!offer && offer.observedAt < observedAt && (!live || managed);
     if (refreshOffer) stats.refreshes++;
     if (refreshOffer && offer?.availabilityStatus !== "LISTED") stats.restored++;
-    const oldModel = existingModels.get(slug);
     let metadata: Prisma.ModelVersionUpdateInput | undefined;
-    if (live && !reviewed && oldModel && row.plain && !processedModels.has(slug)) {
+    if (live && !reviewed && oldModel && !protectedIdentity && row.plain && !processedModels.has(slug)) {
       const previous = oldModel.modalities && typeof oldModel.modalities === "object" && !Array.isArray(oldModel.modalities)
         ? oldModel.modalities : {};
       const merged = row.modalities ? { ...previous, ...row.modalities } : undefined;

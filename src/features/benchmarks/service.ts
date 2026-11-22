@@ -9,7 +9,7 @@ type ScoreRow = {
 };
 
 type EvaluationCohort = {
-  id: string; sourceId: string; evaluationKey: string; methodologyVersion: string | null;
+  id: string; benchmarkId: string; sourceId: string; evaluationKey: string; methodologyVersion: string | null;
   evaluatedAt: Date | null; evaluationOrigin: EvaluationOrigin; datasetRevision: string | null;
   evaluationConfig: string | null; publishedAt: Date | null; observedAt: Date | null;
   evaluatedModels: number; distinctFamilies: number; distinctLabs: number;
@@ -20,13 +20,13 @@ export async function rankings(query: RankingQuery, featured = false) {
   const [definitions, providers, labs, models] = await Promise.all([
     db.benchmark.findMany({
       include: { source: { select: { name: true } } },
-      where: { results: { some: { verifiedStatus: "VERIFIED" } } },
+      where: { results: { some: { verifiedStatus: "VERIFIED", supersededAt: null } } },
       orderBy: [{ category: "asc" }, { name: "asc" }, { id: "asc" }],
     }),
     db.provider.findMany({ select: { slug: true, name: true }, orderBy: { name: "asc" } }),
     db.lab.findMany({ select: { slug: true, name: true }, orderBy: { name: "asc" } }),
     db.modelVersion.findMany({
-      where: { results: { some: { verifiedStatus: "VERIFIED" } } },
+      where: { results: { some: { verifiedStatus: "VERIFIED", supersededAt: null } } },
       select: { slug: true, canonicalName: true }, orderBy: [{ canonicalName: "asc" }, { slug: "asc" }],
     }),
   ]);
@@ -35,30 +35,40 @@ export async function rankings(query: RankingQuery, featured = false) {
     coveredCategories.push("tool-use");
   }
   const categories = [...new Set<string>([...rankingCategories, ...coveredCategories])];
-  const preferred = featured && !query.category && !query.benchmark
-    ? definitions.find(({ slug }) => slug === "gpqa-diamond-epoch-2025-01-27") : undefined;
+  const loadCohorts = (benchmarkId?: string) => db.$queryRaw<EvaluationCohort[]>`
+    SELECT MIN(r.id) AS id, r."benchmarkId", r."sourceId", r."evaluationKey", r."methodologyVersion", r."evaluatedAt",
+      r."evaluationOrigin", r."datasetRevision", r."evaluationConfig", r."publishedAt",
+      MAX(r."observedAt") FILTER (WHERE r."supersededAt" IS NULL) AS "observedAt",
+      COUNT(DISTINCT r."modelVersionId") FILTER (WHERE r."supersededAt" IS NULL)::int AS "evaluatedModels",
+      COUNT(DISTINCT m."familyId") FILTER (WHERE r."supersededAt" IS NULL)::int AS "distinctFamilies",
+      COUNT(DISTINCT f."labId") FILTER (WHERE r."supersededAt" IS NULL)::int AS "distinctLabs"
+    FROM "BenchmarkResult" r
+    JOIN "ModelVersion" m ON m.id = r."modelVersionId"
+    JOIN "ModelFamily" f ON f.id = m."familyId"
+    WHERE r."verifiedStatus" = 'VERIFIED' ${benchmarkId ? Prisma.sql`AND r."benchmarkId" = ${benchmarkId}` : Prisma.empty}
+    GROUP BY r."benchmarkId", r."sourceId", r."evaluationKey", r."methodologyVersion", r."evaluatedAt",
+      r."evaluationOrigin", r."datasetRevision", r."evaluationConfig", r."publishedAt"
+    ORDER BY r."evaluatedAt" DESC NULLS LAST, r."publishedAt" DESC NULLS LAST, COUNT(*) DESC, MIN(r.id)
+  `;
+  const candidates = featured && !query.category && !query.benchmark ? await loadCohorts() : null;
+  const breadth = (count: number) => count >= 20 ? 3 : count >= 8 ? 2 : 1;
+  const reliability = { INDEPENDENT: 2, PUBLISHER: 1, UNKNOWN: 0 };
+  const preferredCohort = candidates?.filter(c => c.evaluatedModels >= 3 && c.distinctLabs >= 2 && c.evaluationOrigin !== "UNKNOWN")
+    .sort((a, b) => breadth(b.evaluatedModels) - breadth(a.evaluatedModels)
+      || reliability[b.evaluationOrigin] - reliability[a.evaluationOrigin]
+      || +(b.evaluatedAt ?? b.publishedAt ?? 0) - +(a.evaluatedAt ?? a.publishedAt ?? 0)
+      || b.distinctLabs - a.distinctLabs || b.evaluatedModels - a.evaluatedModels || a.id.localeCompare(b.id))[0];
+  const preferred = definitions.find(({ id }) => id === preferredCohort?.benchmarkId);
   const requested = definitions.find(({ slug }) => slug === query.benchmark) ?? preferred;
   const category = query.category ?? requested?.category ?? (coveredCategories.includes("coding") ? "coding" : coveredCategories[0] ?? "coding");
   const benchmarks = definitions.filter((item) => item.category === category ||
     (category === "tool-use" && item.slug === "bfcl-v3-function-calling"));
   const benchmark = query.benchmark ? benchmarks.find(({ slug }) => slug === query.benchmark) : preferred ?? benchmarks[0];
 
-  const cohorts = benchmark ? await db.$queryRaw<EvaluationCohort[]>`
-    SELECT MIN(r.id) AS id, r."sourceId", r."evaluationKey", r."methodologyVersion", r."evaluatedAt",
-      r."evaluationOrigin", r."datasetRevision", r."evaluationConfig", r."publishedAt",
-      MAX(r."observedAt") AS "observedAt", COUNT(DISTINCT r."modelVersionId")::int AS "evaluatedModels",
-      COUNT(DISTINCT m."familyId")::int AS "distinctFamilies", COUNT(DISTINCT f."labId")::int AS "distinctLabs"
-    FROM "BenchmarkResult" r
-    JOIN "ModelVersion" m ON m.id = r."modelVersionId"
-    JOIN "ModelFamily" f ON f.id = m."familyId"
-    WHERE r."benchmarkId" = ${benchmark.id} AND r."verifiedStatus" = 'VERIFIED'
-    GROUP BY r."sourceId", r."evaluationKey", r."methodologyVersion", r."evaluatedAt",
-      r."evaluationOrigin", r."datasetRevision", r."evaluationConfig", r."publishedAt"
-    ORDER BY r."evaluatedAt" DESC NULLS LAST, r."publishedAt" DESC NULLS LAST, COUNT(*) DESC, MIN(r.id)
-  ` : [];
-  const cohort = cohorts.find(({ id }) => id === query.cohort) ?? cohorts.find(({ evaluatedModels }) => evaluatedModels >= 2) ?? cohorts[0];
+  const cohorts = benchmark ? (candidates?.filter(item => item.benchmarkId === benchmark.id) ?? await loadCohorts(benchmark.id)) : [];
+  const cohort = cohorts.find(({ id }) => id === query.cohort) ?? preferredCohort ?? cohorts.find(({ evaluatedModels }) => evaluatedModels >= 2) ?? cohorts[0];
   const empty = { data: [] as ScoreRow[], meta: { total: 0, eligible: 0, page: query.page, limit: query.limit, hasMore: false } };
-  const cohortSource = cohort && (await db.dataSource.findUnique({ where: { id: cohort.sourceId }, select: { name: true, homepage: true } }));
+  const cohortSource = cohort && (await db.dataSource.findUnique({ where: { id: cohort.sourceId }, select: { name: true, homepage: true, benchmarkSyncedAt: true } }));
   const selection = { categories, coveredCategories, category, benchmarks, benchmark, providers, labs, models, cohorts, cohort, cohortSource };
   if (!benchmark || !cohort || cohort.evaluatedModels < 2) return { ...empty, ...selection };
 
@@ -82,7 +92,7 @@ export async function rankings(query: RankingQuery, featured = false) {
         r.score::text AS score, r."sourceUrl"
       FROM eligible e JOIN "BenchmarkResult" r ON r."modelVersionId" = e.id
       WHERE r."benchmarkId" = ${benchmark.id} AND r."sourceId" = ${cohort.sourceId}
-        AND r."evaluationKey" = ${cohort.evaluationKey} AND r."verifiedStatus" = 'VERIFIED'
+        AND r."evaluationKey" = ${cohort.evaluationKey} AND r."verifiedStatus" = 'VERIFIED' AND r."supersededAt" IS NULL
         AND r."evaluationOrigin" = ${cohort.evaluationOrigin}::"EvaluationOrigin"
         AND r."datasetRevision" IS NOT DISTINCT FROM ${cohort.datasetRevision}::text
         AND r."evaluationConfig" IS NOT DISTINCT FROM ${cohort.evaluationConfig}::text

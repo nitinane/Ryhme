@@ -38,6 +38,7 @@ function rows(models: ModelDetail[]): { label: string; rows: Row[] }[] {
   const benchmarks = new Map<string, Row>();
   for (const [index, model] of models.entries()) {
     for (const result of model.results) {
+      if (result.verifiedStatus !== "VERIFIED") continue;
       const key = benchmarkCohortKey(result);
       const row = benchmarks.get(key) ?? {
         label: [result.benchmark.name, result.methodologyVersion ?? result.benchmark.version, result.evaluationConfig]
@@ -47,6 +48,7 @@ function rows(models: ModelDetail[]): { label: string; rows: Row[] }[] {
       row.cells[index] = {
         known: result.score.toString(),
         value: <><strong>{result.score.toString()}{result.benchmark.unit === "%" ? "%" : ` ${result.benchmark.unit}`}</strong>
+          <p className="muted text-sm">Evaluated {date(result.evaluatedAt)}</p>
           <p className="muted text-sm"><SourceLink url={result.sourceUrl}>{result.source.name} result</SourceLink></p></>,
       };
       benchmarks.set(key, row);

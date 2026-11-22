@@ -76,6 +76,7 @@ async function CatalogOverview({ query }: { query: RankingQuery }) {
           <details className="studio-method" open>
             <summary>Source &amp; methodology <span>{evaluationOriginLabel[cohort.evaluationOrigin]}</span></summary>
             <div><p>{benchmark.methodology}</p><p>Evidence observed {date(cohort.observedAt)}</p>
+              {cohortSource?.benchmarkSyncedAt && <p>Benchmark source synced {utcTime(cohortSource.benchmarkSyncedAt)}</p>}
               <SourceLink url={benchmark.sourceUrl}>{benchmark.source.name} methodology</SourceLink>
               {cohortSource?.homepage && cohortSource.name !== benchmark.source.name && <SourceLink url={cohortSource.homepage}>{cohortSource.name} evaluation source</SourceLink>}
             </div>

@@ -52,6 +52,7 @@ export default async function RankingsPage({ searchParams }: PageProps<"/ranking
         {cohort.evaluationConfig && <p className="muted">{cohort.evaluationConfig}</p>}
         {cohort.publishedAt && <p className="muted">Archive published {date(cohort.publishedAt)}</p>}
         <p className="muted">Evidence observed {date(cohort.observedAt)}</p>
+        {cohortSource?.benchmarkSyncedAt && <p className="muted">Benchmark source synced <time dateTime={cohortSource.benchmarkSyncedAt.toISOString()}>{cohortSource.benchmarkSyncedAt.toISOString()}</time></p>}
         {cohort.datasetRevision && <details className="muted"><summary>Dataset revision</summary><p className="break-all">{cohort.datasetRevision}</p></details>}
         <p className="muted mt-2">{benchmark.metricName} ({benchmark.unit}) · {benchmark.direction === "HIGHER" ? "Higher is better" : "Lower is better"}</p>
         <p className="muted">Evaluation date {date(cohort.evaluatedAt)} · {cohort.methodologyVersion ?? benchmark.version ?? "Methodology version unknown"}</p>
