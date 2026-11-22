@@ -37,17 +37,18 @@ export async function homeTokenRates(models: BenchmarkPoint[]) {
       model: { select: { slug: true } },
       prices: {
         where: { currency: "USD" },
-        select: { inputPerMillion: true, observedAt: true, sourceUrl: true, source: { select: { name: true } } },
+        select: { inputPerMillion: true, observedAt: true, sourceUrl: true, sourceId: true, source: { select: { name: true } } },
         take: 1, orderBy: [{ observedAt: "desc" }, { id: "desc" }],
       },
     },
     orderBy: [{ providerId: "asc" }, { id: "asc" }],
   });
-  const quotes = new Map<string, { provider: string; points: BenchmarkPoint[] }>();
+  const quotes = new Map<string, { provider: string; observed: string; points: BenchmarkPoint[] }>();
   for (const { provider, model, prices: [price] } of offerings) {
     if (price?.inputPerMillion == null) continue;
-    const group = quotes.get(provider.slug) ?? { provider: provider.name, points: [] };
-    quotes.set(provider.slug, group);
+    const key = JSON.stringify([provider.slug, price.sourceId, price.observedAt]);
+    const group = quotes.get(key) ?? { provider: provider.name, observed: date(price.observedAt), points: [] };
+    quotes.set(key, group);
     if (group.points.some(({ slug }) => slug === model.slug)) continue;
     const modelPoint = models.find(({ slug }) => slug === model.slug)!;
     group.points.push({

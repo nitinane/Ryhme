@@ -63,7 +63,8 @@ export function Navigation() {
   }
 
   function toggleTheme() {
-    const theme = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+    const current = document.documentElement.dataset.theme ?? (path === "/" ? "dark" : "light");
+    const theme = current === "dark" ? "light" : "dark";
     document.documentElement.dataset.theme = theme;
     try { localStorage.setItem("ryhme-theme", theme); } catch {}
   }

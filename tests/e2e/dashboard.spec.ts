@@ -5,15 +5,15 @@ test("dashboard keeps benchmark evidence and search within desktop, tablet, and 
   const nav = page.getByRole("navigation", { name: "Main navigation" });
   const search = nav.getByRole("button", { name: /Search/ });
   const chart = page.getByRole("figure", { name: "SWE-bench Verified" });
-  await expect(chart.getByRole("button", { name: /54\.6%/ })).toBeVisible();
-  await expect(chart.getByRole("button", { name: /54\.6%/ })).toHaveAccessibleDescription("Exact value: 54.6%");
-  await expect(page.getByRole("region", { name: "Performance" }).getByRole("heading", { name: "No comparable timing data" })).toBeVisible();
-  const cost = page.getByRole("region", { name: "Cost" });
-  await expect(cost.getByText(/USD per 1M tokens/)).toBeVisible();
-  await cost.getByRole("button").first().press("Enter");
-  await expect(cost.getByRole("link", { name: "Historical price source" })).toBeVisible();
-  await chart.getByRole("button", { name: /54\.6%/ }).press("Enter");
-  await expect(chart.getByRole("link", { name: "Benchmark result source" })).toHaveAttribute("href", /openai\.com/);
+  const ranked = chart.getByRole("button", { name: "GPT-4.1 mini OpenAI" });
+  const plot = page.getByRole("figure", { name: "Price vs. score" });
+  await expect(ranked).toHaveAccessibleDescription("Exact score: 23.6%");
+  await ranked.press("Enter");
+  await expect(plot.getByRole("button", { name: /^GPT-4.1 mini:/ })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("link", { name: "Benchmark result source" })).toHaveAttribute("href", /openai\.com/);
+  await expect(page.getByRole("link", { name: "Historical price source" })).toBeVisible();
+  await plot.getByRole("button", { name: /^GPT-4.1:/ }).press("Enter");
+  await expect(chart.getByRole("button", { name: "GPT-4.1 OpenAI" })).toHaveAttribute("aria-pressed", "true");
   for (const width of [1440, 768, 375]) {
     await page.setViewportSize({ width, height: 900 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width);
@@ -26,9 +26,9 @@ test("dashboard keeps benchmark evidence and search within desktop, tablet, and 
 
   const toggle = nav.getByRole("button", { name: "Toggle color theme" });
   await toggle.press("Enter");
-  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
   await page.reload();
-  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
   await page.getByRole("searchbox", { name: "Search model catalog" }).fill("Gemma");
   await page.getByRole("button", { name: "Find models" }).click();
   await expect(page).toHaveURL(/\/models\?q=Gemma/);
