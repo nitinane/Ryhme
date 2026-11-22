@@ -63,7 +63,7 @@ export function Navigation() {
   }
 
   function toggleTheme() {
-    const current = document.documentElement.dataset.theme ?? (path === "/" ? "dark" : "light");
+    const current = document.documentElement.dataset.theme ?? "light";
     const theme = current === "dark" ? "light" : "dark";
     document.documentElement.dataset.theme = theme;
     try { localStorage.setItem("ryhme-theme", theme); } catch {}
@@ -73,7 +73,7 @@ export function Navigation() {
     <header className="site-header">
       <a className="skip-link" href="#main-content">Skip to content</a>
       <nav className="frame nav" aria-label="Main navigation">
-        <Link href="/" className="brand"><span className="brand-mark" aria-hidden="true">✦</span>Ryhme</Link>
+        <Link href="/" className="brand">Rhyme</Link>
         <div className="nav-actions">
           <Link href="/models" aria-current={path.startsWith("/models") ? "page" : undefined}>All models</Link>
           <ComparisonLink active={path === "/compare"} />
