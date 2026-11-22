@@ -4,8 +4,6 @@ import { scoreLabel } from "../../src/features/benchmarks/chart-data";
 test("homepage ranks source-backed scores and links keyboard selections across views", async ({ page, request }) => {
   await page.goto("/");
   const category = page.getByRole("navigation", { name: "Benchmark categories" });
-  const benchmarkForm = page.getByRole("form", { name: "Select benchmark" });
-  const benchmark = benchmarkForm.getByRole("combobox", { name: "Benchmark" });
   await expect(category.getByRole("link", { name: "Coding" })).toHaveAttribute("aria-current", "page");
   const response = await request.get("/api/rankings?benchmark=swe-bench-verified-openai-gpt-4-1-launch");
   expect(response.ok()).toBe(true);
@@ -35,10 +33,22 @@ test("homepage ranks source-backed scores and links keyboard selections across v
   await category.getByRole("link", { name: "Reasoning" }).press("Enter");
   await expect(category.getByRole("link", { name: "Reasoning" })).toHaveAttribute("aria-current", "page");
   await expect(page.getByRole("figure", { name: "GPQA Diamond" })).toBeVisible();
-  await benchmark.selectOption("gpqa-diamond-openai-gpt-4-1-launch");
-  await benchmarkForm.getByRole("button", { name: "Apply" }).press("Enter");
+  const benchmark = page.getByRole("button", { name: "Benchmark GPQA Diamond" });
+  const choices = page.getByRole("navigation", { name: "Benchmark", exact: true });
+  await benchmark.press("Enter");
+  await expect(choices).toBeVisible();
+  await page.keyboard.press("Tab");
+  const option = choices.getByRole("link", { name: "GPQA Diamond" });
+  await expect(option).toBeFocused();
+  await expect(option).toHaveAttribute("aria-current", "true");
+  await page.keyboard.press("Escape");
+  await expect(choices).toBeHidden();
+  await expect(benchmark).toBeFocused();
+  await benchmark.press("Space");
+  await page.keyboard.press("Tab");
+  await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/[?&]benchmark=gpqa-diamond-openai-gpt-4-1-launch/);
-  await expect(benchmark).toHaveValue("gpqa-diamond-openai-gpt-4-1-launch");
+  await expect(choices).toBeHidden();
 });
 
 test("homepage stays within desktop, tablet, and mobile layouts and links to catalog search", async ({ page }) => {
