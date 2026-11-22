@@ -21,7 +21,8 @@
     "db:ingest:openrouter": "prisma generate && tsx scripts/ingest-openrouter.ts",
     "db:sync:openrouter": "prisma generate && tsx scripts/sync-openrouter-catalog.ts",
     "db:ingest:bfcl": "prisma generate && tsx scripts/ingest-benchmarks.ts bfcl",
-    "db:ingest:gemma3": "prisma generate && tsx scripts/ingest-benchmarks.ts gemma3"
+    "db:ingest:gemma3": "prisma generate && tsx scripts/ingest-benchmarks.ts gemma3",
+    "db:ingest:epoch": "prisma generate && tsx scripts/ingest-benchmarks.ts epoch"
   },
   "dependencies": {
     "@next/env": "^16.4.6",

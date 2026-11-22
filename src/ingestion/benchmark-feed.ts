@@ -36,7 +36,7 @@ const keyFor = ({ benchmarkId, modelVersionId, evaluationKey }: ResultKey) =>
   JSON.stringify([benchmarkId, modelVersionId, evaluationKey]);
 const day = (value: Date | null) => value?.toISOString().slice(0, 10) ?? null;
 
-export async function ingestBenchmarkFeed(tx: Prisma.TransactionClient, input: BenchmarkFeed, observedAt: Date, apply: boolean) {
+export async function ingestBenchmarkFeed(tx: Prisma.TransactionClient, input: BenchmarkFeed, observedAt: Date, apply: boolean, minimumCohortModels = 2) {
   const { source, benchmarks, evidence, checksum } = feedShape.parse(input);
   const definitions = new Map(benchmarks.map((benchmark) => [benchmark.slug, benchmark]));
   if (definitions.size !== benchmarks.length) throw new Error("Duplicate benchmark definitions.");
@@ -82,7 +82,7 @@ export async function ingestBenchmarkFeed(tx: Prisma.TransactionClient, input: B
     const key = comparisonKey(row);
     cohortCounts.set(key, (cohortCounts.get(key) ?? 0) + 1);
   }
-  const candidates = matched.filter(({ row }) => cohortCounts.get(comparisonKey(row))! >= 2);
+  const candidates = matched.filter(({ row }) => cohortCounts.get(comparisonKey(row))! >= minimumCohortModels);
   const required = benchmarks.filter((definition) => candidates.some(({ row }) => row.benchmarkSlug === definition.slug));
 
   const benchmarkIds = new Map(existingDefinitions.map(({ slug, id }) => [slug, id]));
@@ -107,7 +107,7 @@ export async function ingestBenchmarkFeed(tx: Prisma.TransactionClient, input: B
     }
     return false;
   });
-  const additions = validatedAdditions.filter(({ row }) => cohortCounts.get(comparisonKey(row))! >= 2);
+  const additions = validatedAdditions.filter(({ row }) => cohortCounts.get(comparisonKey(row))! >= minimumCohortModels);
   const stats = {
     source: source.name, matchedModels: new Set(candidates.map(({ modelVersionId }) => modelVersionId)).size,
     unknownResults: evidence.length - matched.length, insufficientResults: matched.length - candidates.length, newResults: additions.length,

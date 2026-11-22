@@ -77,6 +77,32 @@ Run `npm run db:ingest:gemma3` for a read-only preview or pass `-- --apply` to i
 
 The [pinned model card license](https://github.com/google-gemma/docs/blob/9db9d497e046d34c68925f80a0672b3d1fe690dd/LICENSE) is Apache 2.0. Its two imported tables are publisher-reported and provide no individual evaluation dates. The MMMU shot count and dataset artifact revisions are unreported. The source link records the immutable documentation revision.
 
+#### M8 cross-model coverage audit and Epoch import
+
+Read-only Neon baseline before selecting new sources: 592 model versions, 7 definitions, 28 verified scores in 9 cohorts, and 583 models without any verified benchmark evidence.
+
+| Category / evaluation | Evaluated models | Families | Labs |
+| --- | ---: | ---: | ---: |
+| Coding / OpenAI SWE-bench Verified | 2 | 1 | 1 |
+| Reasoning / OpenAI GPQA Diamond | 3 | 1 | 1 |
+| Mathematics / OpenAI AIME 2024 | 3 | 1 | 1 |
+| Vision / Gemma MMMU validation | 3 | 1 | 1 |
+| General knowledge / Gemma MMLU-Pro | 3 | 1 | 1 |
+| Instruction following and long context / BFCL native, each | 3 | 2 | 2 |
+| Instruction following and long context / BFCL prompted, each | 4 | 3 | 3 |
+| Creative writing, speed and latency, and cost efficiency | 0 | 0 | 0 |
+
+The models with verified scores were GPT-4.1, GPT-4.1 mini, GPT-4.1 nano, GPT-4o (2024-11-20), GPT-4o-mini (2024-07-18), Qwen2.5 72B Instruct, and Gemma 3 IT 4B, 12B, and 27B. All other catalog versions lacked verified scores. Match coverage depends on reviewed exact version mappings. Display names, model families, and mutable API aliases alone are insufficient.
+
+**Selected source.** Epoch AI, [Capabilities and benchmarking](https://epoch.ai/benchmarks), [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). The selected aggregate CSVs are pinned by the original [archive](https://epoch.ai/data/benchmark_data.zip) SHA-256 `1f488dfd7e8f8a202efc16e792da93c35ebac431f5ee73f55b9d86b052302cf2`. The checked-in extract filters two same-day batches to exact mapped checkpoints. Scores retain the source's mean accuracy, converted from a fraction to percentage points to fit existing decimal storage. The run date is the UTC date of Epoch's `Started at` field. Release dates are separate. Rows retain Epoch's per-run log viewer link.
+
+- [GPQA Diamond](https://epoch.ai/benchmarks/gpqa-diamond), `gpqa_diamond.csv`, runs started 2025-01-27. Eight mapped checkpoints. The remaining 48 same-day rows were excluded without reviewed exact mappings.
+- [OTIS Mock AIME 2024-2025](https://epoch.ai/benchmarks/otis-mock-aime-2024-2025), `otis_mock_aime_2024_2025.csv`, runs started 2025-02-25. Eight mapped checkpoints. The remaining 24 same-day rows were excluded without reviewed exact mappings.
+
+The [official SWE-bench experiment archive](https://github.com/SWE-bench/experiments) includes different agent setups, and the examined Epoch SWE-bench same-day selections lack three verified exact cross-lab matches. [MMMU-Pro](https://arxiv.org/html/2409.02813v2) has distinct task and prompting settings, and the reviewed matching checkpoints were too narrow for a new cross-lab cohort. [SimpleQA Verified](https://epoch.ai/benchmarks/simple-qa-verified) was reviewed for general knowledge. Its same-day exact matches did not yet establish sufficiently broad cross-lab coverage. These existing categories remain served by their prior cohorts.
+
+Set `BENCHMARK_DATABASE_URL` to a migrated loopback catalog database. Run `npm run db:ingest:epoch` for a preview and `npm run db:ingest:epoch -- --apply` for a local import. To reproduce the checked-in subset, run `python scripts/extract-epoch-benchmarks.py <verified-archive.zip>`. The importer requires three exact model matches in each selected cohort. Neon writes require a separate approval.
+
 ### Activate scheduled catalog sync
 
 The local workflow is gated by `RYHME_CATALOG_SYNC_ENABLED` and runs at 00:17, 06:17, 12:17, and 18:17 UTC. It also supports manual dispatch from `main` on `nitinane/Ryhme`. A workflow concurrency group and a PostgreSQL transaction lock prevent overlapping writes. The run stores last-seen observations and the last successful sync time. A catalog-managed listing must remain missing for at least 24 hours across usable snapshots before becoming unavailable. Large drops, duplicate identifiers, or identity conflicts suspend absence-based changes. Reappearing listings are restored. Missing price components retain their most recent known value when another component changes. The price history records gateway text-token rates and excludes other charges.

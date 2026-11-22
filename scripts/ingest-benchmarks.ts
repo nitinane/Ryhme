@@ -2,11 +2,12 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { ingestBenchmarkFeed } from "../src/ingestion/benchmark-feed";
 import { loadGemma3Card } from "../src/ingestion/gemma3-card";
+import { epochBenchmarkFeed, epochExcluded } from "../src/ingestion/epoch-benchmarks";
 import { loadBfcl } from "../src/ingestion/bfcl";
 
 async function run() {
   const [source, flag, ...extra] = process.argv.slice(2);
-  const loaders = { bfcl: loadBfcl, gemma3: loadGemma3Card };
+  const loaders = { bfcl: loadBfcl, gemma3: loadGemma3Card, epoch: epochBenchmarkFeed };
   if (extra.length || (flag !== undefined && flag !== "--apply") || !Object.hasOwn(loaders, source)) throw new Error();
   const apply = flag === "--apply";
   const url = URL.parse(process.env.BENCHMARK_DATABASE_URL ?? "");
@@ -21,9 +22,9 @@ async function run() {
   try {
     const stats = await db.$transaction(async (tx) => {
       if (!apply) await tx.$executeRaw`SET TRANSACTION READ ONLY`;
-      return ingestBenchmarkFeed(tx, feed, new Date(), apply);
+      return ingestBenchmarkFeed(tx, feed, new Date(), apply, source === "epoch" ? 3 : 2);
     }, { isolationLevel: "Serializable", timeout: 45_000 });
-    console.log(JSON.stringify({ mode: apply ? "applied" : "read-only", ...stats }));
+    console.log(JSON.stringify({ mode: apply ? "applied" : "read-only", ...stats, ...(source === "epoch" ? { sourceRowsExcluded: epochExcluded } : {}) }));
   } finally { await db.$disconnect(); }
 }
 

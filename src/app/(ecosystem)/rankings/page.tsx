@@ -42,10 +42,16 @@ export default async function RankingsPage({ searchParams }: PageProps<"/ranking
       <section className="evidence-panel" aria-labelledby="benchmark-heading">
         <h2 id="benchmark-heading">{benchmark.name}</h2>
         <p className="mt-2">{benchmark.methodology}</p>
-        <p className="muted mt-2">{evaluationOriginLabel[cohort.evaluationOrigin]} / {cohort.evaluatedModels} evaluated model versions</p>
+        <p className="muted mt-2">{evaluationOriginLabel[cohort.evaluationOrigin]}</p>
+        <dl className="fact-list" aria-label="Cohort coverage">
+          <div><dt>Evaluated models</dt><dd>{cohort.evaluatedModels}</dd></div>
+          <div><dt>Distinct families</dt><dd>{cohort.distinctFamilies}</dd></div>
+          <div><dt>Distinct labs</dt><dd>{cohort.distinctLabs}</dd></div>
+        </dl>
+        <p className="muted">Only models with verified scores in this cohort are ranked.</p>
         {cohort.evaluationConfig && <p className="muted">{cohort.evaluationConfig}</p>}
         {cohort.publishedAt && <p className="muted">Archive published {date(cohort.publishedAt)}</p>}
-        {cohort.observedAt && <p className="muted">Evidence observed {date(cohort.observedAt)}</p>}
+        <p className="muted">Evidence observed {date(cohort.observedAt)}</p>
         {cohort.datasetRevision && <details className="muted"><summary>Dataset revision</summary><p className="break-all">{cohort.datasetRevision}</p></details>}
         <p className="muted mt-2">{benchmark.metricName} ({benchmark.unit}) · {benchmark.direction === "HIGHER" ? "Higher is better" : "Lower is better"}</p>
         <p className="muted">Evaluation date {date(cohort.evaluatedAt)} · {cohort.methodologyVersion ?? benchmark.version ?? "Methodology version unknown"}</p>

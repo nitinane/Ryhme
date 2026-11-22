@@ -35,7 +35,8 @@ test("keyboard navigation switches verified rankings and exposes method and limi
   const ranked = await request.get("/api/rankings?category=coding&limit=1");
   expect(ranked.status()).toBe(200);
   const result = await ranked.json();
-  expect(result.meta).toMatchObject({ total: 2, limit: 1, hasMore: true, eligible: 4 });
+  expect(result.meta).toMatchObject({ total: 2, limit: 1, hasMore: true, eligible: 4,
+    cohort: { evaluatedModels: 2, distinctFamilies: 1, distinctLabs: 1 } });
   expect(result.data[0]).toMatchObject({ rank: 1, score: "54.60000000" });
   const filtered = await request.get("/api/rankings?category=coding&lab=openai&model=gpt-4-1-mini-2025-04-14");
   expect(filtered.status()).toBe(200);
@@ -88,6 +89,8 @@ test("publishes all category tabs and lets readers search sourced publisher scor
   const tabs = page.getByRole("navigation", { name: "Benchmark categories" });
   await expect(tabs.getByRole("link")).toHaveCount(10);
   await expect(page.getByText(/Publisher-reported evaluation/)).toBeVisible();
+  const coverage = page.getByLabel("Cohort coverage");
+  await expect(coverage.getByRole("definition")).toHaveText(["2", "1", "1"]);
   await page.getByRole("searchbox", { name: "Search rankings" }).fill("mini");
   await page.getByRole("button", { name: "Apply ranking filters" }).click();
   await expect(page.getByRole("table").getByRole("row")).toHaveCount(2);

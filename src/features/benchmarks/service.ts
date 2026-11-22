@@ -1,11 +1,18 @@
 import "server-only";
-import { Prisma } from "@/generated/prisma/client";
+import { type EvaluationOrigin, Prisma } from "@/generated/prisma/client";
 import { getDb } from "@/lib/db/client";
 import { rankingCategories } from "./categories";
 import { scoreDirection, type RankingQuery } from "./query";
 
 type ScoreRow = {
   rank: number; slug: string; name: string; labName: string; score: string; sourceUrl: string;
+};
+
+type EvaluationCohort = {
+  id: string; sourceId: string; evaluationKey: string; methodologyVersion: string | null;
+  evaluatedAt: Date | null; evaluationOrigin: EvaluationOrigin; datasetRevision: string | null;
+  evaluationConfig: string | null; publishedAt: Date | null; observedAt: Date | null;
+  evaluatedModels: number; distinctFamilies: number; distinctLabs: number;
 };
 
 export async function rankings(query: RankingQuery) {
@@ -29,15 +36,19 @@ export async function rankings(query: RankingQuery) {
   const benchmarks = definitions.filter((item) => item.category === category);
   const benchmark = query.benchmark ? benchmarks.find(({ slug }) => slug === query.benchmark) : benchmarks[0];
 
-  const groups = benchmark ? await db.benchmarkResult.groupBy({
-    by: ["sourceId", "evaluationKey", "methodologyVersion", "evaluatedAt", "evaluationOrigin", "datasetRevision", "evaluationConfig", "publishedAt"],
-    where: { benchmarkId: benchmark.id, verifiedStatus: "VERIFIED" },
-    _min: { id: true },
-    _count: { id: true },
-    _max: { observedAt: true },
-    orderBy: [{ evaluatedAt: { sort: "desc", nulls: "last" } }, { publishedAt: { sort: "desc", nulls: "last" } }, { _count: { id: "desc" } }, { _min: { id: "asc" } }],
-  }) : [];
-  const cohorts = groups.map(({ _min, _count, _max, ...group }) => ({ ...group, id: _min.id!, evaluatedModels: _count.id, observedAt: _max.observedAt }));
+  const cohorts = benchmark ? await db.$queryRaw<EvaluationCohort[]>`
+    SELECT MIN(r.id) AS id, r."sourceId", r."evaluationKey", r."methodologyVersion", r."evaluatedAt",
+      r."evaluationOrigin", r."datasetRevision", r."evaluationConfig", r."publishedAt",
+      MAX(r."observedAt") AS "observedAt", COUNT(DISTINCT r."modelVersionId")::int AS "evaluatedModels",
+      COUNT(DISTINCT m."familyId")::int AS "distinctFamilies", COUNT(DISTINCT f."labId")::int AS "distinctLabs"
+    FROM "BenchmarkResult" r
+    JOIN "ModelVersion" m ON m.id = r."modelVersionId"
+    JOIN "ModelFamily" f ON f.id = m."familyId"
+    WHERE r."benchmarkId" = ${benchmark.id} AND r."verifiedStatus" = 'VERIFIED'
+    GROUP BY r."sourceId", r."evaluationKey", r."methodologyVersion", r."evaluatedAt",
+      r."evaluationOrigin", r."datasetRevision", r."evaluationConfig", r."publishedAt"
+    ORDER BY r."evaluatedAt" DESC NULLS LAST, r."publishedAt" DESC NULLS LAST, COUNT(*) DESC, MIN(r.id)
+  ` : [];
   const cohort = cohorts.find(({ id }) => id === query.cohort) ?? cohorts.find(({ evaluatedModels }) => evaluatedModels >= 2) ?? cohorts[0];
   const empty = { data: [] as ScoreRow[], meta: { total: 0, eligible: 0, page: query.page, limit: query.limit, hasMore: false } };
   const cohortSource = cohort && (await db.dataSource.findUnique({ where: { id: cohort.sourceId }, select: { name: true, homepage: true } }));

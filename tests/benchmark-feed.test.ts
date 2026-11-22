@@ -2,6 +2,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { parseGemma3Card } from "../src/ingestion/gemma3-card";
+import { epochBenchmarkFeed, epochExcluded } from "../src/ingestion/epoch-benchmarks";
+import { stableSlug } from "../src/ingestion/openrouter-catalog";
 import { parseBfcl } from "../src/ingestion/bfcl";
 import { ingestBenchmarkFeed, type BenchmarkFeed } from "../src/ingestion/benchmark-feed";
 import { evaluationOriginLabel, rankingCategories } from "../src/features/benchmarks/categories";
@@ -60,6 +62,20 @@ it("selects only the pinned instruction-tuned format and leaves missing scores a
   expect(feed.evidence.some(row => row.score === "52.2" || row.score === "0")).toBe(false);
   expect(() => parseGemma3Card(card.replace("0-shot", "5-shot"))).toThrow("evaluation configuration");
   expect(() => parseGemma3Card(card.replaceAll("Gemma 3 IT 12B", "Gemma 3 PT 12B"))).toThrow("checkpoint columns");
+});
+
+it("pins independent Epoch cohorts with exact checkpoints, dates, trace links and published ties", () => {
+  const feed = epochBenchmarkFeed();
+  expect(feed.source.license).toBe("CC BY 4.0");
+  expect(feed.checksum).toBe("1f488dfd7e8f8a202efc16e792da93c35ebac431f5ee73f55b9d86b052302cf2");
+  expect(feed.evidence).toHaveLength(16);
+  expect(epochExcluded.map(item => item.count)).toEqual([48, 24]);
+  expect(feed.evidence.every(row => row.evaluationOrigin === "INDEPENDENT" && row.sourceUrl.startsWith("https://logs.epoch.ai/"))).toBe(true);
+  expect(new Set(feed.evidence.map(row => row.evaluatedAt))).toEqual(new Set(["2025-01-27", "2025-02-25"]));
+  expect(feed.evidence.filter(row => row.score === "6.25000000").map(row => row.modelSlug)).toEqual([
+    stableSlug("openai/gpt-4o-2024-05-13"), stableSlug("openai/gpt-4o-2024-11-20"),
+  ]);
+  expect(feed.evidence.some(row => row.modelSlug === stableSlug("openai/gpt-4o"))).toBe(false);
 });
 
 const testUrl = process.env.BENCHMARK_TEST_DATABASE_URL;
