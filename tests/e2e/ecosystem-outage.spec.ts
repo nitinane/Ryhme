@@ -1,16 +1,17 @@
 import { spawn } from "node:child_process";
 import { expect, test } from "@playwright/test";
+import { playwrightDatabaseEnv } from "../fixtures/playwright-database";
 
 test("a Vercel Production runtime blocks a reachable database URL", async ({ request }) => {
+  expect((await request.get("/api/health")).status()).toBe(200);
   const port = "3102";
   const url = `http://127.0.0.1:${port}/api/health`;
   const server = spawn(process.execPath, ["node_modules/next/dist/bin/next", "start", "--hostname", "127.0.0.1", "--port", port], {
-    env: { ...process.env, VERCEL: "1", VERCEL_ENV: "production" },
+    env: { ...process.env, ...playwrightDatabaseEnv(), VERCEL: "1", VERCEL_ENV: "production" },
     stdio: "ignore",
     windowsHide: true,
   });
   try {
-    expect(process.env.DATABASE_URL).toBeTruthy();
     await expect.poll(async () => {
       try {
         return (await request.get(url, { timeout: 1_000 })).status();
@@ -27,7 +28,8 @@ test("ecosystem pages and APIs handle an unreachable PostgreSQL connection", asy
   const port = "3101";
   const base = `http://127.0.0.1:${port}`;
   const server = spawn(process.execPath, ["node_modules/next/dist/bin/next", "start", "--hostname", "127.0.0.1", "--port", port], {
-    env: { ...process.env, DATABASE_URL: "postgresql://unavailable@127.0.0.1:1/ryhme" },
+    env: { ...process.env, ...playwrightDatabaseEnv(), DATABASE_URL: "postgresql://unavailable@127.0.0.1:1/ryhme",
+      DIRECT_URL: "postgresql://unavailable@127.0.0.1:1/ryhme" },
     stdio: "ignore",
     windowsHide: true,
   });

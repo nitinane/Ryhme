@@ -54,10 +54,11 @@ test("provider and lab directories cross-link offerings, creators and versions o
   await expect(page.getByRole("status")).toHaveText("1 provider");
   await page.getByRole("link", { name: "OpenRouter", exact: true }).click();
   await expect(page.getByRole("heading", { name: "OpenRouter" })).toBeVisible();
-  await expect(page.getByText("Pricing unknown.")).toBeVisible();
-  await expect(page.getByText("Listed in provider docs", { exact: true }).last()).toBeVisible();
+  const gemmaOffering = page.getByRole("listitem").filter({ has: page.getByRole("heading", { name: "Gemma 3 27B Instruct" }) });
+  await expect(gemmaOffering.getByText("Pricing unknown.")).toBeVisible();
+  await expect(gemmaOffering.getByText("Listed in provider docs", { exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(768);
-  await page.getByRole("link", { name: "Google DeepMind" }).click();
+  await gemmaOffering.getByRole("link", { name: "Google DeepMind" }).click();
   await expect(page.getByRole("heading", { name: "Google DeepMind" })).toBeVisible();
   await page.getByRole("link", { name: "Gemma 3 27B Instruct" }).click();
   await expect(page.getByRole("heading", { name: "Gemma 3 27B Instruct" })).toBeVisible();

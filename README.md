@@ -33,7 +33,17 @@ Open `http://localhost:3000`. The homepage reads the catalog size from PostgreSQ
 
 The offline seed contains four model versions across two labs and two providers. It includes three GPT-4.1 snapshots with [publisher-reported launch prices and benchmark results](https://openai.com/index/gpt-4-1/) and Gemma 3 27B Instruct with a [Google DeepMind model card](https://huggingface.co/google/gemma-3-27b-it) and an [OpenRouter listing observation](https://openrouter.ai/api/v1/models/google/gemma-3-27b-it/endpoints). Repeated seeding preserves existing records and historical observations.
 
-Run `npm run lint`, `npm run typecheck`, `npm test`, and `npm run build`. For integration and mobile smoke, use a fresh development database, run the migration and seed twice, run `npm exec -- tsx tests/seed-check.ts` after each seed, then run `npm exec -- playwright install chromium` and `npm run test:e2e` after the build. GitHub Actions runs the same checks against disposable PostgreSQL. Vercel can use its Next.js preset and `npm run build`; apply reviewed migrations as a separate controlled step.
+Run `npm run lint`, `npm run typecheck`, `npm test`, and `npm run build`. For browser tests, create a fresh local PostgreSQL 17 database named `ryhme_test`. In a dedicated shell, set `PLAYWRIGHT_DATABASE_URL` to that database's URL at `127.0.0.1` with an explicit port, and set both `DATABASE_URL` and `DIRECT_URL` to the same local URL before running these commands.
+
+```sh
+npm run db:migrate
+npm run db:seed
+npm run build
+npm exec -- playwright install chromium
+npm run test:e2e
+```
+
+Playwright uses `PLAYWRIGHT_DATABASE_URL` for its own app servers and verifies the checked-in four-model seed before running tests. GitHub Actions uses the same fixture and also checks that running the seed twice preserves the dataset. Vercel can use its Next.js preset and `npm run build`. Apply reviewed migrations as a separate controlled step.
 
 ## Catalog and comparison
 

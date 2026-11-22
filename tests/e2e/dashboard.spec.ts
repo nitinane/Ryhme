@@ -6,8 +6,8 @@ test("homepage ranks source-backed scores and links keyboard selections across v
   const category = page.getByRole("navigation", { name: "Benchmark categories" });
   const benchmarkForm = page.getByRole("form", { name: "Select benchmark" });
   const benchmark = benchmarkForm.getByRole("combobox", { name: "Benchmark" });
-  await expect(category.getByRole("link", { name: "Reasoning" })).toHaveAttribute("aria-current", "page");
-  const response = await request.get("/api/rankings?benchmark=gpqa-diamond-epoch-2025-01-27");
+  await expect(category.getByRole("link", { name: "Coding" })).toHaveAttribute("aria-current", "page");
+  const response = await request.get("/api/rankings?benchmark=swe-bench-verified-openai-gpt-4-1-launch");
   expect(response.ok()).toBe(true);
   const { data, meta } = await response.json();
   const rows = data as { rank: number; name: string; score: string; sourceUrl: string }[];
@@ -26,19 +26,19 @@ test("homepage ranks source-backed scores and links keyboard selections across v
   await expect(ranked).toHaveAttribute("aria-pressed", "true");
   await expect(ranked).toHaveAccessibleDescription(`Exact score: ${scoreLabel(rows[1].score, meta.benchmark.unit)}`);
   const pricePlot = page.getByRole("figure", { name: "Price vs. score" });
-  await expect(pricePlot.getByRole("button", { pressed: true })).toHaveAccessibleName(new RegExp("^" + rows[1].name.split(":")[0]));
+  const selectedPrice = pricePlot.getByRole("button", { pressed: true });
+  await expect(selectedPrice).toBeVisible();
+  expect(await selectedPrice.getAttribute("aria-label")).toContain(`${rows[1].name}: ${scoreLabel(rows[1].score, meta.benchmark.unit)}`);
   await page.getByRole("table").getByRole("button").first().press("Space");
   await expect(bars.first()).toHaveAttribute("aria-pressed", "true");
 
-  await category.getByRole("link", { name: "Coding" }).press("Enter");
-  await expect(category.getByRole("link", { name: "Coding" })).toHaveAttribute("aria-current", "page");
-  const alternatives = await benchmark.locator('option[value]:not([value=""])').evaluateAll(options => options.map(option => (option as HTMLOptionElement).value));
-  const current = await benchmark.inputValue();
-  const next = alternatives.find(value => value !== current) ?? current;
-  await benchmark.selectOption(next);
+  await category.getByRole("link", { name: "Reasoning" }).press("Enter");
+  await expect(category.getByRole("link", { name: "Reasoning" })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("figure", { name: "GPQA Diamond" })).toBeVisible();
+  await benchmark.selectOption("gpqa-diamond-openai-gpt-4-1-launch");
   await benchmarkForm.getByRole("button", { name: "Apply" }).press("Enter");
-  await expect(page).toHaveURL(new RegExp(`[?&]benchmark=${next}`));
-  await expect(benchmark).toHaveValue(next);
+  await expect(page).toHaveURL(/[?&]benchmark=gpqa-diamond-openai-gpt-4-1-launch/);
+  await expect(benchmark).toHaveValue("gpqa-diamond-openai-gpt-4-1-launch");
 });
 
 test("homepage stays within desktop, tablet, and mobile layouts and links to catalog search", async ({ page }) => {

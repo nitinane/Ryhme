@@ -45,3 +45,5 @@ jobs:
       - run: npm run build
       - run: npm exec -- playwright install --with-deps chromium
       - run: npm run test:e2e
+        env:
+          PLAYWRIGHT_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/ryhme_test

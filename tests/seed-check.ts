@@ -11,6 +11,8 @@ try {
     ]);
   assert.deepEqual([labs, families, models, providers, offerings, prices, benchmarks, results, sources, observations],
     [2, 2, 4, 2, 4, 3, 3, 8, 3, 31]);
+  const openRouter = await db.dataSource.findUniqueOrThrow({ where: { id: "openrouter" } });
+  assert.equal(openRouter.catalogSyncedAt, null);
   const sample = await db.modelVersion.findUniqueOrThrow({
     where: { slug: "gpt-4-1-2025-04-14" },
     include: { family: { include: { lab: true } }, offerings: { include: { prices: true } }, results: true },

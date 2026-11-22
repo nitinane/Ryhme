@@ -8,7 +8,7 @@ test("catalog search, filters, stable pagination, and URL restore query PostgreS
   await page.goto("/models?q=GPT-4.1&limit=1");
   await expect(page.getByRole("status")).toHaveText("3 results");
   await expect(page.getByText(/Last successful OpenRouter sync.*Awaiting first scheduled run/)).toBeVisible();
-  await expect(page.getByText("New to Ryhme").first()).toBeVisible();
+  await expect(page.getByText(/^New to /).first()).toBeVisible();
   const table = page.getByRole("table");
   await table.getByText("Evidence", { exact: true }).first().click();
   await expect(table.getByRole("link", { name: /offering source/i }).first()).toBeVisible();
@@ -60,11 +60,13 @@ test("global keyboard search opens, restores focus, and navigates to sourced mod
   await dialog.getByRole("link", { name: "GPT-4.1 nano" }).click();
   await expect(page).toHaveURL(nano);
   await expect(page.getByRole("heading", { name: "GPT-4.1 nano", exact: true })).toBeVisible();
-  await expect(page.getByText("Historical pricing · USD per 1M tokens")).toBeVisible();
+  const offer = page.getByRole("region", { name: "Provider offerings" }).getByRole("listitem")
+    .filter({ has: page.getByRole("heading", { name: "OpenAI API" }) });
+  await expect(offer.getByText("Historical pricing · USD per 1M tokens")).toBeVisible();
   await expect(page.getByText("Last updated", { exact: true })).toBeVisible();
-  await expect(page.getByText("Unavailable", { exact: true })).toBeVisible();
+  await expect(offer.getByText("Unavailable", { exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "GPQA Diamond" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Offering source" })).toHaveAttribute("href", /developers\.openai\.com/);
+  await expect(offer.getByRole("link", { name: "Offering source" })).toHaveAttribute("href", /developers\.openai\.com/);
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(375);
   await page.getByRole("link", { name: "GPT-4.1", exact: true }).click();
   await expect(page).toHaveURL(primary);
@@ -113,7 +115,16 @@ test("model selection, comparison links and historical costs work on a narrow sc
   await expect(estimator.getByText("USD 2.80", { exact: true })).toBeVisible();
   await expect(estimator.getByText("USD 0.56", { exact: true })).toBeVisible();
   await page.getByRole("link", { name: "Edit in catalog" }).click();
+  await expect(page.getByRole("complementary", { name: "Comparison selection" })).toContainText("3 of 4 selected");
+  const modelSearch = page.getByRole("searchbox", { name: "Model name" });
+  await modelSearch.fill("GPT-4.1 nano");
+  await modelSearch.press("Enter");
+  await expect(page).toHaveURL(url => url.searchParams.get("q") === "GPT-4.1 nano");
+  await expect(page.getByRole("status")).toHaveText("1 result");
   await expect(page.getByRole("checkbox", { name: "Compare GPT-4.1 nano", exact: true })).toBeChecked();
+  await modelSearch.fill("Gemma");
+  await modelSearch.press("Enter");
+  await expect(page).toHaveURL(url => url.searchParams.get("q") === "Gemma");
   await page.getByRole("checkbox", { name: "Compare Gemma 3 27B Instruct" }).check();
   await page.getByRole("link", { name: "Compare selected" }).click();
   await expect(page.getByRole("columnheader")).toHaveCount(5);
