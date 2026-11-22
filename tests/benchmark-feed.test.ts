@@ -30,8 +30,8 @@ it("normalizes BFCL scores and keeps configuration, exact model identity and arc
   expect(() => parseBfcl(csv.replace("69.58%", "unknown"))).toThrow("score format");
 });
 
-it("registers ten categories and distinguishes score direction and evaluation origin", () => {
-  expect(rankingCategories).toHaveLength(10);
+it("registers eleven categories and distinguishes score direction and evaluation origin", () => {
+  expect(rankingCategories).toHaveLength(11);
   expect(scoreDirection("HIGHER")).toBe("DESC");
   expect(scoreDirection("LOWER")).toBe("ASC");
   expect(evaluationOriginLabel.PUBLISHER).toBe("Publisher-reported evaluation");

@@ -4,6 +4,7 @@ export const categoryLabels = {
   mathematics: "Mathematics",
   "vision-multimodal": "Vision and multimodal",
   "general-knowledge": "General knowledge",
+  "tool-use": "Tool use and function calling",
   "instruction-following": "Instruction following",
   "long-context": "Long context",
   "creative-writing": "Creative writing",

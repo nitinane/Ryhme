@@ -5,6 +5,7 @@ import { SourceLink } from "@/features/catalog/components/source-link";
 import { availability, capabilityNames, date, list, modalityNames, number } from "@/features/catalog/presentation";
 import { lifecycles } from "@/features/catalog/schemas/query";
 import { findComparison, type ModelDetail } from "@/features/catalog/services/models";
+import { ComparisonSpecs, PriceHistory } from "@/features/comparison/components/measurements";
 import { CostCalculator } from "@/features/comparison/components/calculator";
 import { BrowseForComparison } from "@/features/comparison/components/selection";
 import { compareQuery } from "@/features/comparison/schemas/compare";
@@ -119,7 +120,7 @@ export default async function ComparePage({ searchParams }: PageProps<"/compare"
         <section aria-labelledby="performance-comparison" className="mb-6">
           <h2 id="performance-comparison" className="mb-3">Benchmark comparison</h2>
           {charts.length === 0 ? <p className="panel muted">Select models with scores from a shared verified evaluation to compare performance.</p>
-            : <div className="grid gap-2">{charts.map(({ key, result, points, prices }, index) => {
+            : <div className="grid gap-2">{charts.map(({ key, result, points, prices, rates }, index) => {
               const { benchmark } = result;
               return <details className="benchmark-disclosure" key={key} open={index === 0}>
                 <summary>{benchmark.name} <span className="muted text-sm">· {result.methodologyVersion ?? benchmark.version ?? "Version unknown"}
@@ -132,11 +133,17 @@ export default async function ComparePage({ searchParams }: PageProps<"/compare"
                     <ScoreCostPlot key={priceKey}
                       title={benchmark.name} unit={benchmark.unit} provider={provider} currency={currency} observed={date(observedAt)} points={points} />
                   ))}
-                  {prices.length === 0 && <p className="panel muted">Score-versus-cost data is unavailable for the same provider, currency, and price observation date.</p>}
+                  {rates.map(({ key: rateKey, provider, currency, observedAt, points }) => (
+                    <ScoreCostPlot key={rateKey} tokenRate title={benchmark.name} unit={benchmark.unit}
+                      provider={provider} currency={currency} observed={date(observedAt)} points={points} />
+                  ))}
+                  {prices.length === 0 && rates.length === 0 && <p className="panel muted">Score-versus-cost data is unavailable for the same provider, currency, and price observation date.</p>}
                 </div>
               </details>;
             })}</div>}
         </section>
+        <ComparisonSpecs models={models} />
+        <PriceHistory models={models} />
         <div id="comparison-matrix" className="matrix-scroll" tabIndex={0} role="region" aria-label="Scrollable model comparison">
           <table className="matrix">
             <caption className="sr-only">Specifications, offerings, pricing, and benchmark scores by model</caption>

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { evaluationOriginLabel } from "@/features/benchmarks/categories";
-import { rankingQuery } from "@/features/benchmarks/query";
+import { categoryName, rankingQuery } from "@/features/benchmarks/query";
 import { rankings } from "@/features/benchmarks/service";
 import { SourceLink } from "@/features/catalog/components/source-link";
 import { date } from "@/features/catalog/presentation";
@@ -29,9 +29,9 @@ export default async function RankingsPage({ searchParams }: PageProps<"/ranking
     <header className="page-heading"><h1>Benchmark rankings</h1><p>Compare model versions in the same published evaluation.</p></header>
     <div className="analysis-workspace">
     <RankingControls action="/rankings" options={results} query={query} />
-    {!benchmark || !cohort ? <section className="panel mt-5"><h2>No verified benchmark coverage</h2>
-      <p className="muted mt-2">Choose a category or benchmark with published results.</p>
-      <Link className="text-link mt-2 inline-block" href="/rankings">Browse available benchmarks</Link>
+    {!benchmark || !cohort ? <section className="coverage-empty mt-5"><h2>No verified benchmark coverage</h2>
+      <p className="muted mt-2">{categoryName(results.category)} has no comparable verified results in this view.</p>
+      <Link className="text-link mt-2 inline-block" href="/rankings">Browse available benchmarks</Link> <Link className="text-link ml-3" href="/models">Explore all models</Link>
     </section> : <>
       <div className="ranking-insights">
       {cohort.evaluatedModels < 2 ? <section className="panel"><h2>Insufficient comparable evidence</h2>
@@ -59,7 +59,7 @@ export default async function RankingsPage({ searchParams }: PageProps<"/ranking
           {cohortSource && cohort.sourceId !== benchmark.sourceId && <> / <SourceLink url={cohortSource.homepage}>{cohortSource.name} evaluator</SourceLink></>}</p>
         {cohorts.length > 1 && <nav aria-label="Evaluation cohorts" className="mt-3 flex flex-wrap gap-2">{cohorts.map((item) => {
           const params = rankingFilters(query);
-          params.set("category", benchmark.category);
+          params.set("category", results.category);
           params.set("benchmark", benchmark.slug);
           params.set("cohort", item.id);
           return <Link className="button" key={item.id} aria-current={item.id === cohort.id ? "page" : undefined}

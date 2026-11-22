@@ -71,11 +71,12 @@ test("global keyboard search opens, restores focus, and navigates to sourced mod
 test("model selection, comparison links and historical costs work on a narrow screen", async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await page.goto("/models?q=GPT-4.1&limit=2");
-  await expect(page.getByRole("searchbox", { name: "Model name" })).toBeHidden();
+  await expect(page.getByRole("searchbox", { name: "Model name" })).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "Availability", exact: true })).toBeHidden();
   const filterDisclosure = page.locator("details.filter-panel > summary");
   await expect(filterDisclosure).toBeVisible();
   await filterDisclosure.press("Space");
-  await expect(page.getByRole("searchbox", { name: "Model name" })).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "Availability", exact: true })).toBeVisible();
   await filterDisclosure.press("Space");
   await page.getByRole("checkbox", { name: "Compare GPT-4.1", exact: true }).check();
   await expect(page.getByRole("button", { name: "Compare selected" })).toBeDisabled();
@@ -89,6 +90,8 @@ test("model selection, comparison links and historical costs work on a narrow sc
   await expect(page.getByRole("columnheader")).toHaveCount(4);
   const scoreCost = page.getByRole("figure", { name: /score vs\. cost/ });
   await expect(scoreCost.first()).toBeVisible();
+  await expect(page.getByRole("figure", { name: /score vs. input token price/ }).first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Context windows" })).toBeVisible();
   await scoreCost.first().getByRole("button", { name: /GPT-4\.1 mini/ }).press("Enter");
   await expect(scoreCost.first().getByRole("link", { name: "Historical price source" })).toBeVisible();
   await expect(page.getByRole("cell", { name: "No score reported" })).toBeVisible();

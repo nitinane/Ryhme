@@ -4,7 +4,7 @@ import { estimateCost } from "./cost";
 
 type Result = ModelDetail["results"][number];
 type PricePoint = BenchmarkPoint & { cost: string; priceUrl: string };
-type PriceGroup = { provider: string; currency: string; observedAt: Date; points: PricePoint[] };
+type PriceGroup = { provider: string; currency: string; observedAt: Date; points: PricePoint[]; rates: PricePoint[] };
 
 export const benchmarkWorkload = { input: 1_000_000, output: 100_000 };
 
@@ -28,14 +28,17 @@ export function benchmarkComparisons(models: ModelDetail[]) {
         const { price } = offer;
         if (offer.availabilityStatus !== "LISTED" || !price) continue;
         const cost = estimateCost(price, benchmarkWorkload.input, benchmarkWorkload.output);
-        if (cost === null) continue;
+        if (cost === null && price.inputPerMillion === null) continue;
         const priceKey = JSON.stringify([offer.provider.slug, price.currency, price.sourceId, price.observedAt]);
         const pricing = group.prices.get(priceKey) ?? {
-          provider: offer.provider.name, currency: price.currency, observedAt: price.observedAt, points: [],
+          provider: offer.provider.name, currency: price.currency, observedAt: price.observedAt, points: [], rates: [],
         };
         group.prices.set(priceKey, pricing);
-        if (!pricing.points.some(({ slug }) => slug === point.slug)) {
+        if (cost !== null && !pricing.points.some(({ slug }) => slug === point.slug)) {
           pricing.points.push({ ...point, cost, priceUrl: price.sourceUrl });
+        }
+        if (price.inputPerMillion !== null && !pricing.rates.some(({ slug }) => slug === point.slug)) {
+          pricing.rates.push({ ...point, cost: price.inputPerMillion.toString(), priceUrl: price.sourceUrl });
         }
       }
     }
@@ -43,6 +46,7 @@ export function benchmarkComparisons(models: ModelDetail[]) {
 
   return [...groups].flatMap(([key, group]) => group.points.length < 2 ? [] : [{
     key, result: group.result, points: group.points,
+    rates: [...group.prices].flatMap(([key, pricing]) => pricing.rates.length < 2 ? [] : [{ key, ...pricing, points: pricing.rates }]),
     prices: [...group.prices].flatMap(([key, pricing]) => pricing.points.length < 2 ? [] : [{ key, ...pricing }]),
   }]);
 }

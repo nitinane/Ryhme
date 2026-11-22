@@ -87,7 +87,7 @@ test("publishes all category tabs and lets readers search sourced publisher scor
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rankings");
   const tabs = page.getByRole("navigation", { name: "Benchmark categories" });
-  await expect(tabs.getByRole("link")).toHaveCount(10);
+  await expect(tabs.getByRole("link")).toHaveCount(11);
   await expect(page.getByText(/Publisher-reported evaluation/)).toBeVisible();
   const coverage = page.getByLabel("Cohort coverage");
   await expect(coverage.getByRole("definition")).toHaveText(["2", "1", "1"]);

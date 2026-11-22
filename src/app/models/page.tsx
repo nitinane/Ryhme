@@ -11,6 +11,7 @@ import { availability, capabilityNames, date, number, utcTime } from "@/features
 export const metadata: Metadata = { title: "Model catalog | Ryhme" };
 
 const sorts = {
+  discovered: "Recently discovered",
   name: "Name (A–Z)", release: "Newest release", context: "Largest context", price: "Lowest observed USD input price",
 };
 
@@ -45,16 +46,20 @@ export default async function ModelsPage({ searchParams }: PageProps<"/models">)
   return (
     <main id="main-content" className="frame page">
       <div className="page-heading">
-        <h1>Model catalog</h1>
+        <h1>All models</h1>
         <p>Search documented model versions and narrow by capabilities, context, or provider.</p>
         <p className="text-sm">Last successful OpenRouter sync {syncedAt
           ? <><time dateTime={syncedAt.toISOString()}>{utcTime(syncedAt)}</time>{options.syncOverdue && " · Sync overdue"}</>
           : "· Awaiting first scheduled run"}</p>
       </div>
       <div className="catalog-layout">
-        <FilterPanel active={active}>
-          <Form action="/models" className="filters" key={JSON.stringify(query)}>
-            <label>Model name<input name="q" type="search" maxLength={120} defaultValue={query.q} placeholder="e.g. GPT-4.1" /></label>
+        <Form action="/models" className="catalog-controls" key={JSON.stringify(query)}>
+          <div className="catalog-search">
+            <label>Model name<input name="q" type="search" maxLength={120} defaultValue={query.q} placeholder="Search models" /></label>
+            <button type="submit" className="button primary">Search</button>
+          </div>
+          <FilterPanel active={active} label="Catalog filters">
+            <div className="filters">
             <label>Family<select name="family" defaultValue={query.family ?? ""}><option value="">All families</option><Options entries={options.families} /></select></label>
             <label>Lab<select name="lab" defaultValue={query.lab ?? ""}><option value="">All labs</option><Options entries={options.labs} /></select></label>
             <label>Provider<select name="provider" defaultValue={query.provider ?? ""}><option value="">All providers</option><Options entries={options.providers} /></select></label>
@@ -63,6 +68,10 @@ export default async function ModelsPage({ searchParams }: PageProps<"/models">)
             </select></label>
             <label>Input modality<select name="modality" defaultValue={query.modality ?? ""}><option value="">Any modality</option>
               {["text", "image", "audio", "video"].map((mode) => <option key={mode} value={mode}>{mode}</option>)}
+            </select></label>
+            <label>Availability<select name="availability" defaultValue={query.availability ?? ""}>
+              <option value="">Any offering status</option>
+              {Object.entries(availability).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </select></label>
             <label>Lifecycle<select name="lifecycle" defaultValue={query.lifecycle ?? ""}><option value="">Any lifecycle</option>
               {Object.entries(lifecycles).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
@@ -84,11 +93,12 @@ export default async function ModelsPage({ searchParams }: PageProps<"/models">)
               <Link href="/models" className="text-link text-sm">Clear</Link>
             </div>
             {query.limit !== 20 && <input type="hidden" name="limit" value={query.limit} />}
-          </Form>
-        </FilterPanel>
+            </div>
+          </FilterPanel>
+        </Form>
         <section aria-labelledby="results-heading" className="min-w-0">
           <div className="results-heading">
-            <h2 id="results-heading">Model versions</h2>
+            <h2 id="results-heading">{meta.total ? `${number(meta.total)} model versions` : "Model versions"}</h2>
             <p role="status" className="muted">{meta.total} {meta.total === 1 ? "result" : "results"}</p>
           </div>
           {data.length === 0 ? (
@@ -100,10 +110,11 @@ export default async function ModelsPage({ searchParams }: PageProps<"/models">)
               </Link>
             </div>
           ) : <ul className="catalog-records">{data.map((model) => {
-            const offer = model.offerings.find((item) =>
-              (!query.provider || item.provider.slug === query.provider) && item.price?.inputPerMillion != null);
+            const matchingOffers = model.offerings.filter(item =>
+              (!query.provider || item.provider.slug === query.provider) && (!query.availability || item.availabilityStatus === query.availability));
+            const offer = matchingOffers.find((item) => item.price?.inputPerMillion != null);
             const price = offer?.price;
-            const attributed = model.offerings.find((item) => item.provider.slug === query.provider) ?? model.offerings[0];
+            const attributed = matchingOffers[0];
             return (
               <li className="model-card catalog-record" key={model.id}>
                 <div className="catalog-record-heading">
@@ -138,7 +149,7 @@ export default async function ModelsPage({ searchParams }: PageProps<"/models">)
           })}</ul>}
           {(meta.page > 1 || meta.hasMore) && <nav className="pagination" aria-label="Catalog pages">
             {meta.page > 1 && <Link className="button" href={pageHref(meta.page - 1)}>Previous page</Link>}
-            <span className="muted">Page {meta.page}</span>
+            <span className="muted">Page {meta.page} of {Math.ceil(meta.total / meta.limit)}</span>
             {meta.hasMore && meta.page < 10_000 && <Link className="button" href={pageHref(meta.page + 1)}>Next page</Link>}
           </nav>}
         </section>

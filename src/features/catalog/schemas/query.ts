@@ -21,10 +21,11 @@ export const catalogQuery = z.strictObject({
   modality: z.preprocess(blank, z.enum(["text", "image", "audio", "video"]).optional()),
   openWeights: z.preprocess(blank, z.enum(["true", "false"]).transform((value) => value === "true").optional()),
   license: z.preprocess(blank, z.string().max(100).optional()),
+  availability: z.preprocess(blank, z.enum(["LISTED", "UNAVAILABLE", "UNKNOWN"]).optional()),
   lifecycle: z.preprocess(blank, z.enum(["ACTIVE", "DEPRECATED", "RETIRED", "UNKNOWN"]).optional()),
   minContext: z.preprocess(blank, integer.pipe(z.number().max(2_147_483_647)).optional()),
   maxInputPrice: z.preprocess(blank, z.string().regex(/^\d{1,8}(?:\.\d{1,8})?$/).optional()),
-  sort: z.enum(["name", "release", "context", "price"]).default("name"),
+  sort: z.enum(["name", "release", "context", "price", "discovered"]).default("name"),
   page: integer.pipe(z.number().min(1).max(10_000)).default(1),
   limit: integer.pipe(z.number().min(1).max(100)).default(20),
 });

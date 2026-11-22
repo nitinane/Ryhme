@@ -15,7 +15,7 @@ type EvaluationCohort = {
   evaluatedModels: number; distinctFamilies: number; distinctLabs: number;
 };
 
-export async function rankings(query: RankingQuery) {
+export async function rankings(query: RankingQuery, featured = false) {
   const db = getDb();
   const [definitions, providers, labs, models] = await Promise.all([
     db.benchmark.findMany({
@@ -26,15 +26,22 @@ export async function rankings(query: RankingQuery) {
     db.provider.findMany({ select: { slug: true, name: true }, orderBy: { name: "asc" } }),
     db.lab.findMany({ select: { slug: true, name: true }, orderBy: { name: "asc" } }),
     db.modelVersion.findMany({
+      where: { results: { some: { verifiedStatus: "VERIFIED" } } },
       select: { slug: true, canonicalName: true }, orderBy: [{ canonicalName: "asc" }, { slug: "asc" }],
     }),
   ]);
   const coveredCategories = [...new Set<string>(definitions.map(({ category }) => category))];
+  if (definitions.some(({ slug }) => slug === "bfcl-v3-function-calling") && !coveredCategories.includes("tool-use")) {
+    coveredCategories.push("tool-use");
+  }
   const categories = [...new Set<string>([...rankingCategories, ...coveredCategories])];
-  const requested = definitions.find(({ slug }) => slug === query.benchmark);
+  const preferred = featured && !query.category && !query.benchmark
+    ? definitions.find(({ slug }) => slug === "gpqa-diamond-epoch-2025-01-27") : undefined;
+  const requested = definitions.find(({ slug }) => slug === query.benchmark) ?? preferred;
   const category = query.category ?? requested?.category ?? (coveredCategories.includes("coding") ? "coding" : coveredCategories[0] ?? "coding");
-  const benchmarks = definitions.filter((item) => item.category === category);
-  const benchmark = query.benchmark ? benchmarks.find(({ slug }) => slug === query.benchmark) : benchmarks[0];
+  const benchmarks = definitions.filter((item) => item.category === category ||
+    (category === "tool-use" && item.slug === "bfcl-v3-function-calling"));
+  const benchmark = query.benchmark ? benchmarks.find(({ slug }) => slug === query.benchmark) : preferred ?? benchmarks[0];
 
   const cohorts = benchmark ? await db.$queryRaw<EvaluationCohort[]>`
     SELECT MIN(r.id) AS id, r."sourceId", r."evaluationKey", r."methodologyVersion", r."evaluatedAt",

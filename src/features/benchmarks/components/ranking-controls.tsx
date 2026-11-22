@@ -19,7 +19,7 @@ export function rankingFilters(query: RankingQuery) {
 
 export function RankingControls({ action, options, query }: { action: "/" | "/rankings"; options: Options; query: RankingQuery }) {
   const { category, benchmarks, benchmark, labs, models, providers } = options;
-  const categories = action === "/" ? options.coveredCategories : options.categories;
+  const categories = action === "/" ? options.categories.filter(item => options.coveredCategories.includes(item)) : options.categories;
 
   return <>
     {categories.length > 0 && <nav className="benchmark-tabs" aria-label="Benchmark categories">
@@ -38,7 +38,7 @@ export function RankingControls({ action, options, query }: { action: "/" | "/ra
         <option value="">Default benchmark</option>
         {benchmarks.map((option) => <option key={option.id} value={option.slug}>{option.name}</option>)}
       </select></label>
-      <FilterPanel className="ranking-filter-options" label="Filters" active={[query.q, query.lab, query.model, query.provider, query.sort !== "best"].filter(Boolean).length}>
+      <FilterPanel desktopOpen={action !== "/"} className="ranking-filter-options" label="Filters" active={[query.q, query.lab, query.model, query.provider, query.sort !== "best"].filter(Boolean).length}>
         <div className="ranking-secondary">
           <label>Search rankings<input name="q" type="search" maxLength={120} defaultValue={query.q} placeholder="Model or lab" /></label>
           <label>Lab<select name="lab" defaultValue={query.lab ?? ""}>

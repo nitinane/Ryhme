@@ -74,7 +74,7 @@ export function Navigation() {
       <nav className="frame nav" aria-label="Main navigation">
         <Link href="/" className="brand"><span className="brand-mark" aria-hidden="true">✦</span>Ryhme</Link>
         <div className="nav-actions">
-          <Link href="/models" aria-current={path.startsWith("/models") ? "page" : undefined}>Models</Link>
+          <Link href="/models" aria-current={path.startsWith("/models") ? "page" : undefined}>All models</Link>
           <ComparisonLink active={path === "/compare"} />
           <Link href="/rankings" aria-current={path === "/rankings" ? "page" : undefined}>Leaderboards</Link>
           <Link href="/labs" aria-current={path.startsWith("/labs") ? "page" : undefined}>Labs</Link>

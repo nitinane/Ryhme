@@ -7,6 +7,7 @@ import { SourceLink } from "@/features/catalog/components/source-link";
 import { availability, capabilityNames, date, list, modalityNames, number, utcTime } from "@/features/catalog/presentation";
 import { lifecycles, slug } from "@/features/catalog/schemas/query";
 import { findModel } from "@/features/catalog/services/models";
+import { PriceHistory } from "@/features/comparison/components/measurements";
 import { CompareToggle } from "@/features/comparison/components/selection";
 
 export const dynamic = "force-dynamic";
@@ -109,6 +110,7 @@ export default async function ModelPage({ params }: PageProps<"/models/[slug]">)
             </ul>}
         </section>
       </div>
+      <PriceHistory models={[model]} />
     </main>
   );
 }

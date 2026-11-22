@@ -6,8 +6,8 @@ import { SourceLink } from "@/features/catalog/components/source-link";
 
 type CostPoint = BenchmarkPoint & { cost: string; priceUrl: string };
 
-export function ScoreCostPlot({ title, unit, provider, currency, observed, points }: {
-  title: string; unit: string; provider: string; currency: string; observed: string; points: CostPoint[];
+export function ScoreCostPlot({ title, unit, provider, currency, observed, points, tokenRate = false }: {
+  title: string; unit: string; provider: string; currency: string; observed: string; points: CostPoint[]; tokenRate?: boolean;
 }) {
   const id = useId();
   const [active, setActive] = useState<string>();
@@ -16,9 +16,9 @@ export function ScoreCostPlot({ title, unit, provider, currency, observed, point
   const maxCost = Math.max(...points.map(({ cost }) => Number(cost)));
   return <figure className="panel chart-panel" aria-labelledby={`${id}-title`}>
     <figcaption>
-      <h2 id={`${id}-title`}>{title} score vs. cost</h2>
-      <p className="muted text-sm mt-1">{provider} · Historical estimates in {currency} · Prices observed {observed}</p>
-      <p className="muted text-sm">Workload: 1M input and 100k output tokens.</p>
+      <h2 id={`${id}-title`}>{title} score vs. {tokenRate ? "input token price" : "cost"}</h2>
+      <p className="muted text-sm mt-1">{provider} · {tokenRate ? "Historical input rates in" : "Historical estimates in"} {currency} · Prices observed {observed}</p>
+      <p className="muted text-sm">{tokenRate ? `${currency} per 1M input tokens` : "Workload: 1M input and 100k output tokens."}</p>
     </figcaption>
     <div className="scatter-chart">
       <div className="scatter-y" aria-hidden="true"><span>{scoreLabel(String(scale.max), unit)}</span><span>{scoreLabel(String(scale.min), unit)}</span></div>

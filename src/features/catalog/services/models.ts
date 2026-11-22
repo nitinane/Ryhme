@@ -22,6 +22,7 @@ const summaryInclude = {
 
 const detailInclude = {
   ...summaryInclude,
+  offerings: { ...summaryInclude.offerings, include: { ...offeringInclude, prices: { ...latestPrice, take: 6 } } },
   family: {
     include: {
       lab: true,
@@ -68,6 +69,7 @@ async function withEvidence(models: DetailRecord[]) {
   });
   return models.map((model) => ({
     ...summary(model),
+    priceHistory: model.offerings.map(({ id, provider, externalModelId, prices }) => ({ id, provider, externalModelId, prices })),
     versions: model.family.versions,
     results: model.results,
     sources: evidence.filter(({ entityId, entityType }) =>
@@ -95,6 +97,7 @@ export async function findComparison(ids: string[]) {
 
 const orders = {
   name: Prisma.sql`"canonicalName" ASC`,
+  discovered: Prisma.sql`"createdAt" DESC`,
   release: Prisma.sql`"releaseDate" DESC NULLS LAST`,
   context: Prisma.sql`"contextTokens" DESC NULLS LAST`,
   price: Prisma.sql`"usdInput" ASC NULLS LAST`,
@@ -102,7 +105,7 @@ const orders = {
 
 export async function listModels(query: CatalogQuery) {
   const { q, family, lab, provider, lifecycle, capability, modality, license, openWeights,
-    minContext, maxInputPrice, sort, page, limit } = query;
+    minContext, maxInputPrice, availability, sort, page, limit } = query;
   const priced = sort === "price" || maxInputPrice !== undefined;
   const filters = [Prisma.sql`TRUE`];
 
@@ -117,16 +120,18 @@ export async function listModels(query: CatalogQuery) {
   if (license) filters.push(Prisma.sql`m.license = ${license}`);
   if (capability) filters.push(Prisma.sql`m.capabilities @> ${JSON.stringify([capability])}::jsonb`);
   if (modality) filters.push(Prisma.sql`m.modalities @> ${JSON.stringify({ input: [modality] })}::jsonb`);
-  if (provider) filters.push(Prisma.sql`EXISTS (
+  if (provider || availability) filters.push(Prisma.sql`EXISTS (
     SELECT 1 FROM "Offering" o JOIN "Provider" p ON p.id = o."providerId"
-    WHERE o."modelVersionId" = m.id AND p.slug = ${provider}
+    WHERE o."modelVersionId" = m.id
+      ${provider ? Prisma.sql`AND p.slug = ${provider}` : Prisma.empty}
+      ${availability ? Prisma.sql`AND o."availabilityStatus" = ${availability}::"Availability"` : Prisma.empty}
   )`);
   if (maxInputPrice !== undefined) filters.push(Prisma.sql`pricing."usdInput" <= ${maxInputPrice}::numeric`);
 
   return getDb().$transaction(async (db) => {
     const [result] = await db.$queryRaw<{ total: number; ids: string[] }[]>`
       WITH filtered AS (
-        SELECT m.id, m."canonicalName", m."releaseDate", m."contextTokens"
+        SELECT m.id, m."canonicalName", m."releaseDate", m."contextTokens", m."createdAt"
           ${priced ? Prisma.sql`, pricing."usdInput"` : Prisma.empty}
         FROM "ModelVersion" m
         JOIN "ModelFamily" f ON f.id = m."familyId"
