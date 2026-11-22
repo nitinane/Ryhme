@@ -9,7 +9,9 @@ test("catalog search, filters, stable pagination, and URL restore query PostgreS
   await expect(page.getByRole("status")).toHaveText("3 results");
   await expect(page.getByText(/Last successful OpenRouter sync.*Awaiting first scheduled run/)).toBeVisible();
   await expect(page.getByText("New to Ryhme").first()).toBeVisible();
-  await expect(page.getByRole("link", { name: /offering source/i }).first()).toBeVisible();
+  const table = page.getByRole("table");
+  await table.getByText("Evidence", { exact: true }).first().click();
+  await expect(table.getByRole("link", { name: /offering source/i }).first()).toBeVisible();
   await expect(page.getByRole("link", { name: "GPT-4.1", exact: true })).toBeVisible();
   await page.getByRole("link", { name: "Next page" }).click();
   await expect(page).toHaveURL(/page=2/);
@@ -17,6 +19,7 @@ test("catalog search, filters, stable pagination, and URL restore query PostgreS
   await page.reload();
   await expect(page.getByRole("searchbox", { name: "Model name" })).toHaveValue("GPT-4.1");
 
+  await page.getByText("Catalog filters", { exact: false }).first().click();
   await page.getByRole("combobox", { name: "Family", exact: true }).selectOption("gpt-4-1");
   await page.getByRole("combobox", { name: "Provider", exact: true }).selectOption("openai-api");
   await page.getByRole("combobox", { name: "Capability", exact: true }).selectOption("structured-outputs");
@@ -28,6 +31,9 @@ test("catalog search, filters, stable pagination, and URL restore query PostgreS
   await expect(page).toHaveURL(/maxInputPrice=0.50/);
   await expect(page.getByRole("status")).toHaveText("1 result");
   await expect(page.getByRole("link", { name: "GPT-4.1 mini", exact: true })).toHaveAttribute("href", mini);
+  await table.getByRole("link", { name: "Context", exact: true }).click();
+  await expect(page).toHaveURL(/sort=context/);
+  await expect(table.getByRole("columnheader", { name: "Context" })).toHaveAttribute("aria-sort", "descending");
   await page.goto("/models?openWeights=true");
   await expect(page.getByRole("link", { name: "Gemma 3 27B Instruct" })).toBeVisible();
   await page.goto("/models?openWeights=false");

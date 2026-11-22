@@ -5,7 +5,7 @@ import { useId, useState } from "react";
 import { SourceLink } from "@/features/catalog/components/source-link";
 import { scoreLabel, scoreScale, type BenchmarkPoint } from "../chart-data";
 
-export function BenchmarkBars({ title, metric, unit, direction, methodology, evidenceDate, points, missing = 0 }: {
+export function BenchmarkBars({ title, metric, unit, direction, methodology, evidenceDate, points, missing = 0, compactScores = false }: {
   title: string;
   metric: string;
   unit: string;
@@ -14,6 +14,7 @@ export function BenchmarkBars({ title, metric, unit, direction, methodology, evi
   evidenceDate: string;
   points: BenchmarkPoint[];
   missing?: number;
+  compactScores?: boolean;
 }) {
   const id = useId();
   const [selectedSlug, setSelectedSlug] = useState<string>();
@@ -33,12 +34,12 @@ export function BenchmarkBars({ title, metric, unit, direction, methodology, evi
         {points.map((point) => {
           const position = scale.position(Number(point.score));
           return <li key={point.slug}>
-            <button type="button" className="chart-row" aria-pressed={selected?.slug === point.slug}
+            <button type="button" className="chart-row" title={compactScores ? scoreLabel(point.score, unit) : undefined} aria-pressed={selected?.slug === point.slug}
               aria-controls={`${id}-evidence`} onClick={() => setSelectedSlug(selected?.slug === point.slug ? undefined : point.slug)}>
               <span className="chart-name">{point.rank !== undefined && <span className="chart-rank">#{point.rank} </span>}{point.name}</span>
               <span className="chart-track" aria-hidden="true"><span className="chart-bar"
                 style={{ insetInlineStart: `${Math.min(position, zero)}%`, width: `${Math.abs(position - zero)}%` }} /></span>
-              <strong>{scoreLabel(point.score, unit)}</strong>
+              <strong>{scoreLabel(compactScores ? Number(point.score).toFixed(2) : point.score, unit)}</strong>
             </button>
           </li>;
         })}

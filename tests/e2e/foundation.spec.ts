@@ -7,8 +7,8 @@ test("the public page reads the seeded count and fits a mobile viewport", async 
   await expect(page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Ryhme" })).toBeVisible();
   await expect(page.getByRole("contentinfo")).toHaveText("Ryhme");
   await expect(page.locator('meta[property="og:site_name"]')).toHaveAttribute("content", "Ryhme");
-  await expect(page.getByRole("heading", { name: "Model intelligence" })).toBeVisible();
-  await expect(page.getByRole("region", { name: "Catalog at a glance" }).getByRole("definition").first()).toHaveText("4");
+  await expect(page.getByRole("heading", { name: "Model benchmarks" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Catalog at a glance" }).getByRole("link", { name: "4 models", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Latest discoveries" })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(375);
   const health = await request.get("/api/health");

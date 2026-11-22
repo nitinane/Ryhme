@@ -6,7 +6,7 @@ import { FilterPanel } from "@/features/catalog/components/filter-panel";
 import { CompareToggle } from "@/features/comparison/components/selection";
 import { catalogOptions, listModels } from "@/features/catalog/services/models";
 import { capabilities, catalogQuery, lifecycles } from "@/features/catalog/schemas/query";
-import { availability, capabilityNames, date, number, utcTime } from "@/features/catalog/presentation";
+import { availability, capabilityNames, number, utcTime } from "@/features/catalog/presentation";
 
 export const metadata: Metadata = { title: "Model catalog | Ryhme" };
 
@@ -34,12 +34,12 @@ export default async function ModelsPage({ searchParams }: PageProps<"/models">)
 
   const syncedAt = options.catalogSyncedAt;
 
-  function pageHref(page: number) {
+  function catalogHref(change: { page: number } | { sort: keyof typeof sorts }) {
     const params = new URLSearchParams();
     for (const [key, value] of Object.entries(raw)) {
       if (typeof value === "string" && value && key !== "page") params.set(key, value);
     }
-    params.set("page", String(page));
+    for (const [key, value] of Object.entries(change)) params.set(key, String(value));
     return `/models?${params}`;
   }
 
@@ -47,18 +47,18 @@ export default async function ModelsPage({ searchParams }: PageProps<"/models">)
     <main id="main-content" className="frame page">
       <div className="page-heading">
         <h1>All models</h1>
-        <p>Search documented model versions and narrow by capabilities, context, or provider.</p>
+
         <p className="text-sm">Last successful OpenRouter sync {syncedAt
           ? <><time dateTime={syncedAt.toISOString()}>{utcTime(syncedAt)}</time>{options.syncOverdue && " · Sync overdue"}</>
           : "· Awaiting first scheduled run"}</p>
       </div>
-      <div className="catalog-layout">
+      <div className="catalog-workspace">
         <Form action="/models" className="catalog-controls" key={JSON.stringify(query)}>
           <div className="catalog-search">
             <label>Model name<input name="q" type="search" maxLength={120} defaultValue={query.q} placeholder="Search models" /></label>
             <button type="submit" className="button primary">Search</button>
           </div>
-          <FilterPanel active={active} label="Catalog filters">
+          <FilterPanel active={active} label="Catalog filters" desktopOpen={false}>
             <div className="filters">
             <label>Family<select name="family" defaultValue={query.family ?? ""}><option value="">All families</option><Options entries={options.families} /></select></label>
             <label>Lab<select name="lab" defaultValue={query.lab ?? ""}><option value="">All labs</option><Options entries={options.labs} /></select></label>
@@ -105,52 +105,68 @@ export default async function ModelsPage({ searchParams }: PageProps<"/models">)
             <div className="panel">
               <h3>{meta.total ? "No models on this page" : "No matching models"}</h3>
               <p className="muted mt-2">Try a different page or broaden your filters.</p>
-              <Link className="text-link mt-3 inline-block" href={meta.total ? pageHref(1) : "/models"}>
+              <Link className="text-link mt-3 inline-block" href={meta.total ? catalogHref({ page: 1 }) : "/models"}>
                 {meta.total ? "Go to first page" : "Clear filters"}
               </Link>
             </div>
-          ) : <ul className="catalog-records">{data.map((model) => {
-            const matchingOffers = model.offerings.filter(item =>
-              (!query.provider || item.provider.slug === query.provider) && (!query.availability || item.availabilityStatus === query.availability));
-            const offer = matchingOffers.find((item) => item.price?.inputPerMillion != null);
-            const price = offer?.price;
-            const attributed = matchingOffers[0];
-            return (
-              <li className="model-card catalog-record" key={model.id}>
-                <div className="catalog-record-heading">
-                  <div><p className="muted text-sm">{model.family.lab.name} / {model.family.name}</p>
-                    <h3 className="mt-1"><Link className="model-link" href={`/models/${model.slug}`}>{model.name}</Link></h3></div>
-                  <div className="flex flex-wrap gap-1">
-                    <span className="chip">{lifecycles[model.lifecycle]}</span>
-                    {model.recentlyAdded && <span className="chip">New to Ryhme</span>}
-                  </div>
-                </div>
-                <dl className="card-specs">
-                  <div><dt>Context</dt><dd>{number(model.contextTokens)}{model.contextTokens === null ? "" : " tokens"}</dd></div>
-                  <div><dt>Released</dt><dd>{date(model.releaseDate)}</dd></div>
-                  <div><dt>Capabilities</dt><dd>{capabilityNames(model.capabilities).join(", ") || "Unknown"}</dd></div>
-                  <div><dt>Historical input / 1M tokens</dt>
-                    <dd>{offer && price?.inputPerMillion != null ? <>
-                      {`${price.currency} ${price.inputPerMillion}`} <span className="muted text-xs">{offer.provider.name}</span>
-                    </> : "Unknown"}</dd></div>
-                </dl>
-                <div className="card-footer">
-                  <span className="muted text-sm">{model.offerings.length
-                    ? model.offerings.map((offer) => `${offer.provider.name} · ${availability[offer.availabilityStatus]}${offer.catalogMissingSince && offer.availabilityStatus === "LISTED" ? " (not seen recently)" : ""}`).join(" / ")
-                    : "Provider offerings unknown"}</span>
-                  <p className="muted text-xs break-words">
-                    Updated <time dateTime={model.updatedAt.toISOString()}>{utcTime(model.updatedAt)}</time>
-                    {attributed && <> · <SourceLink url={attributed.sourceUrl}>{attributed.source.name} offering source</SourceLink></>}
-                  </p>
-                  <CompareToggle id={model.id} name={model.name} />
-                </div>
-              </li>
-            );
-          })}</ul>}
+          ) : <>
+            <p className="catalog-scroll-hint catalog-note muted mb-2">Scroll the table for pricing, capabilities, and availability.</p>
+            <div className="catalog-table-scroll" role="region" aria-label="Model catalog table" aria-describedby="catalog-price-note" tabIndex={0}>
+              <table className="catalog-table">
+                <thead><tr>
+                  <th scope="col" aria-sort={query.sort === "name" ? "ascending" : undefined}>
+                    <Link href={catalogHref({ sort: "name" })}>Model / lab <span aria-hidden="true">{query.sort === "name" ? "↑" : "↕"}</span></Link>
+                  </th>
+                  <th scope="col">Family</th>
+                  <th scope="col" aria-sort={query.sort === "context" ? "descending" : undefined}>
+                    <Link href={catalogHref({ sort: "context" })}>Context <span aria-hidden="true">{query.sort === "context" ? "↓" : "↕"}</span></Link>
+                  </th>
+                  <th scope="col" aria-sort={query.sort === "price" ? "ascending" : undefined}>
+                    <Link href={catalogHref({ sort: "price" })}>Input / 1M <span aria-hidden="true">{query.sort === "price" ? "↑" : "↕"}</span></Link>
+                  </th>
+                  <th scope="col">Output / 1M</th>
+                  <th scope="col">Capabilities</th>
+                  <th scope="col">Availability</th>
+                  <th scope="col">Compare</th>
+                </tr></thead>
+                <tbody>{data.map((model) => {
+                  const offerings = model.offerings.filter(item =>
+                    (!query.provider || item.provider.slug === query.provider) && (!query.availability || item.availabilityStatus === query.availability));
+                  const priceOffering = offerings.find(({ price }) => price?.inputPerMillion != null)
+                    ?? offerings.find(({ price }) => price?.outputPerMillion != null);
+                  const price = priceOffering?.price;
+                  const attributed = priceOffering ?? offerings[0];
+                  const statuses = [...new Set(offerings.map(offer =>
+                    availability[offer.availabilityStatus] + (offer.catalogMissingSince && offer.availabilityStatus === "LISTED" ? " (not seen recently)" : "")))];
+                  return <tr key={model.id}>
+                    <th scope="row">
+                      <Link className="model-link" href={`/models/${model.slug}`}>{model.name}</Link>
+                      <span className="catalog-lab">{model.family.lab.name}{model.recentlyAdded && <small>New to Ryhme</small>}</span>
+                    </th>
+                    <td>{model.family.name}</td>
+                    <td className="catalog-number">{model.contextTokens == null ? "—" : number(model.contextTokens)}</td>
+                    <td className="catalog-number">{price?.inputPerMillion == null ? "—" : `${price.currency} ${price.inputPerMillion}`}</td>
+                    <td className="catalog-number">{price?.outputPerMillion == null ? "—" : `${price.currency} ${price.outputPerMillion}`}</td>
+                    <td>{capabilityNames(model.capabilities).join(", ") || "—"}</td>
+                    <td>
+                      {statuses.join(" / ") || "Unknown"}
+                      {attributed && <details className="catalog-source">
+                        <summary>Evidence</summary>
+                        <span>{attributed.provider.name} · {lifecycles[model.lifecycle]} · Updated <time dateTime={model.updatedAt.toISOString()}>{utcTime(model.updatedAt)}</time></span>
+                        <SourceLink url={attributed.sourceUrl}>{attributed.source.name} offering source</SourceLink>
+                      </details>}
+                    </td>
+                    <td><CompareToggle id={model.id} name={model.name} /></td>
+                  </tr>;
+                })}</tbody>
+              </table>
+            </div>
+          </>}
+          {data.length > 0 && <p id="catalog-price-note" className="catalog-note muted">Historical token rates from a single offering per row. — means undocumented.</p>}
           {(meta.page > 1 || meta.hasMore) && <nav className="pagination" aria-label="Catalog pages">
-            {meta.page > 1 && <Link className="button" href={pageHref(meta.page - 1)}>Previous page</Link>}
+            {meta.page > 1 && <Link className="button" href={catalogHref({ page: meta.page - 1 })}>Previous page</Link>}
             <span className="muted">Page {meta.page} of {Math.ceil(meta.total / meta.limit)}</span>
-            {meta.hasMore && meta.page < 10_000 && <Link className="button" href={pageHref(meta.page + 1)}>Next page</Link>}
+            {meta.hasMore && meta.page < 10_000 && <Link className="button" href={catalogHref({ page: meta.page + 1 })}>Next page</Link>}
           </nav>}
         </section>
       </div>
