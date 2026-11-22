@@ -9,8 +9,8 @@ test("keyboard navigation switches verified rankings and exposes method and limi
   await expect(page.getByRole("heading", { name: "SWE-bench Verified" })).toBeVisible();
   await expect(page.getByText("2 scored · 2 without a comparable score")).toBeVisible();
   const chart = page.getByRole("figure", { name: "Ranked scores" });
-  await expect(chart.getByRole("button", { name: /#1 GPT-4\.1 54\.6%/ })).toBeVisible();
-  await chart.getByRole("button", { name: /#1 GPT-4\.1 54\.6%/ }).press("Enter");
+  await expect(chart.getByRole("button", { name: /#1 GPT-4\.1.*54\.6%/ })).toBeVisible();
+  await chart.getByRole("button", { name: /#1 GPT-4\.1.*54\.6%/ }).press("Enter");
   await expect(chart.getByRole("link", { name: "Benchmark result source" })).toBeVisible();
   await expect(page.getByText("Evaluation date Unknown", { exact: false })).toBeVisible();
   await expect(page.getByRole("link", { name: "OpenAI benchmark source" })).toHaveAttribute("href", /openai\.com\/index\/gpt-4-1/);
@@ -94,7 +94,7 @@ test("publishes all category tabs and lets readers search sourced publisher scor
   await page.getByRole("searchbox", { name: "Search rankings" }).fill("mini");
   await page.getByRole("button", { name: "Apply ranking filters" }).click();
   await expect(page.getByRole("table").getByRole("row")).toHaveCount(2);
-  await expect(page.getByRole("table").getByText("23.6%")).toBeVisible();
+  await expect(page.getByRole("table").getByRole("cell", { name: "23.6%", exact: true })).toBeVisible();
   await tabs.getByRole("link", {name:"Creative writing"}).click();
   await expect(page.getByRole("heading", {name:"No verified benchmark coverage"})).toBeVisible();
   await expect(page.getByRole("table")).toHaveCount(0);

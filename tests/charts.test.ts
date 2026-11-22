@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { scoreLabel, scoreScale } from "../src/features/benchmarks/chart-data";
+import { displayScore, labColor, scoreLabel, scoreScale } from "../src/features/benchmarks/chart-data";
 
 it("preserves exact displayed scores and uses a common percent axis", () => {
   const points = [
@@ -18,4 +18,13 @@ it("includes zero in signed score ranges and handles a zero-only cohort", () => 
   const scale = scoreScale([point, { ...point, score: "15" }], "ms");
   expect([scale.min, scale.max, scale.position(0)]).toEqual([-5, 15, 25]);
   expect(scoreScale([{ ...point, score: "0" }], "ms").position(0)).toBe(0);
+});
+
+it("uses stable lab colors and keeps nonzero token prices visible after rounding", () => {
+  expect(labColor("openai-openrouter")).toBe(labColor("openai"));
+  expect(labColor("openai")).not.toBe(labColor("google"));
+  expect(labColor("unmapped-lab")).toBe(labColor("unmapped-lab"));
+  expect(displayScore("49.21085859", "%")).toBe("49.21%");
+  expect(displayScore("0.0000015", "USD", 4)).toBe("0.0000015 USD");
+  expect(displayScore("0", "USD", 4)).toBe("0 USD");
 });

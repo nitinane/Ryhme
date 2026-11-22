@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import Form from "next/form";
-import { homeCatalog } from "@/features/catalog/services/home";
+import { homeCatalog, homeTokenRates } from "@/features/catalog/services/home";
 import { date, number, utcTime } from "@/features/catalog/presentation";
 import { SourceLink } from "@/features/catalog/components/source-link";
 import { BenchmarkBars } from "@/features/benchmarks/components/benchmark-bars";
@@ -17,6 +17,7 @@ async function CatalogOverview({ query }: { query: RankingQuery }) {
   if (!catalog) return <p className="panel" role="status">Catalog temporarily unavailable. Reload the page to try again.</p>;
   if (!catalog.models) return <p className="panel" role="status">The catalog is empty.</p>;
   const { benchmark, cohort } = result ?? {};
+  const rates = await homeTokenRates(result?.data.slice(0, 8) ?? []).catch(() => null);
   const params = rankingFilters(query);
   if (result?.category) params.set("category", result.category);
   if (benchmark) params.set("benchmark", benchmark.slug);
@@ -43,15 +44,47 @@ async function CatalogOverview({ query }: { query: RankingQuery }) {
           <Link className="text-link text-sm" href={`/rankings?${params}`}>Full leaderboard</Link>
         </header>
         {result && <RankingControls action="/" options={result} query={query} />}
-        {result && benchmark && cohort && cohort.evaluatedModels >= 2 ? <>
-          <BenchmarkBars key={cohort.id} title={benchmark.name} metric={benchmark.metricName} unit={benchmark.unit}
-            direction={benchmark.direction} methodology={benchmark.methodology} evidenceDate={date(cohort.evaluatedAt)}
-            points={result.data} compactScores />
-          <div className="dashboard-evidence muted text-sm">
-            <span>{cohort.evaluatedModels} evaluated / {cohort.distinctLabs} labs / {evaluationOriginLabel[cohort.evaluationOrigin]}</span>
-            <SourceLink url={benchmark.sourceUrl}>{benchmark.source.name} methodology</SourceLink>
-          </div>
-        </> : <p className="coverage-empty muted">Comparable scores are unavailable. <Link className="text-link" href="/models">Explore all models</Link>.</p>}
+        <div className="analytics-panels">
+          <section className="analytics-module" aria-labelledby="home-intelligence">
+            <h3 id="home-intelligence"><span />Intelligence</h3>
+            <p className="module-kicker">Category benchmark · No composite index</p>
+            {result && benchmark && cohort && cohort.evaluatedModels >= 2 ? <>
+              <BenchmarkBars key={cohort.id} title={benchmark.name} metric={benchmark.metricName} unit={benchmark.unit}
+                direction={benchmark.direction} methodology={benchmark.methodology} evidenceDate={date(cohort.evaluatedAt)}
+                points={result.data.slice(0, 8)} />
+              <div className="dashboard-evidence muted text-xs">
+                <span>{cohort.evaluatedModels} evaluated · {cohort.distinctLabs} labs · {evaluationOriginLabel[cohort.evaluationOrigin]}</span>
+                <span className="basis-full">{cohort.methodologyVersion ?? benchmark.version ?? "Version unknown"} · Evaluation {date(cohort.evaluatedAt)}</span>
+                <SourceLink url={benchmark.sourceUrl}>{benchmark.source.name} methodology</SourceLink>
+              </div>
+            </> : <p className="coverage-empty muted">Comparable scores are unavailable. <Link className="text-link" href="/models">Explore all models</Link>.</p>}
+          </section>
+          <section className="analytics-module performance-module" aria-labelledby="home-performance">
+            <h3 id="home-performance"><span />Performance</h3>
+            <p className="module-kicker">Time per task</p>
+            <div className="performance-state">
+              <svg viewBox="0 0 40 40" width="40" height="40" fill="none" aria-hidden="true">
+                <circle cx="20" cy="20" r="14" stroke="currentColor" strokeWidth="1.8" />
+                <path d="M20 12v8l5 3M15 3h10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+              </svg>
+              <h4>No comparable timing data</h4>
+              <p>Measured time per task needs a shared workload and evaluation setup.</p>
+              <Link className="text-link" href="/rankings?category=speed-latency">View speed and latency coverage</Link>
+            </div>
+          </section>
+          <section className="analytics-module cost-module" aria-labelledby="home-cost">
+            <h3 id="home-cost"><span />Cost</h3>
+            <p className="module-kicker">Historical input rates · USD per 1M tokens</p>
+            {rates ? <>
+              <BenchmarkBars key={`${cohort?.id}-${rates.provider}`} title={rates.provider} metric="Input token price" unit="USD"
+                direction="LOWER" methodology="" evidenceDate="" points={rates.points} sourceLabel="Historical price source" />
+              <div className="dashboard-evidence muted text-xs">
+                <span>{rates.points.length} benchmarked {rates.points.length === 1 ? "model" : "models"} with recorded rates</span>
+                <Link className="text-link" href="/models?sort=price">Browse token pricing</Link>
+              </div>
+            </> : <p className="coverage-empty muted">No USD input prices for the selected models. <Link className="text-link" href="/models?sort=price">Browse token pricing</Link>.</p>}
+          </section>
+        </div>
       </section>
       <section className="catalog-paths" aria-labelledby="explore-catalog">
         <h2 id="explore-catalog">Explore the catalog</h2>

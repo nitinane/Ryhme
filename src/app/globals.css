@@ -459,20 +459,6 @@ h1 { font: 700 clamp(1.7rem, 3vw, 2.25rem)/1.15 system-ui, "Segoe UI", sans-seri
 .featured-analysis .analytics-filters { grid-template-columns: minmax(0, 19rem) auto auto; justify-content: start; }
 .featured-analysis .ranking-filter-options[open] { grid-column: 1 / -1; grid-row: 2; }
 .featured-analysis .ranking-filter-options[open] > summary { display: list-item; }
-.featured-analysis .chart-panel { --chart-columns: minmax(10rem, 1fr) minmax(0, 3.1fr) 4rem; padding: 0; margin-top: .85rem; border: 0; }
-.featured-analysis figcaption h2 { font-size: 1.18rem; letter-spacing: -.025em; }
-.featured-analysis .chart-bars { gap: 0; }
-.featured-analysis .chart-row { min-height: 2.65rem; font-weight: 540; }
-.featured-analysis .chart-row[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); }
-.featured-analysis .chart-track { height: 2.65rem; margin-block: -.5rem; }
-.featured-analysis .chart-bar { inset-block: .73rem; border-radius: .27rem; }
-.featured-analysis .chart-rank { display: inline-block; min-width: 1.8rem; font-variant-numeric: tabular-nums; }
-.featured-analysis .chart-axis { margin-top: .25rem; }
-.featured-analysis .chart-axis > div { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 0; }
-.featured-analysis .chart-axis span { justify-self: center; }
-.featured-analysis .chart-axis span:first-child { justify-self: start; }
-.featured-analysis .chart-axis span:last-child { justify-self: end; }
-.featured-analysis .chart-axis > div:has(> :nth-child(5)) { grid-template-columns: .5fr repeat(3, 1fr) .5fr; }
 .catalog-paths > div { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr)); margin-top: .45rem; border-block: 1px solid var(--line); }
 .catalog-paths a { padding: .65rem .7rem; }
 .catalog-paths a:hover { background: var(--surface-raised); }
@@ -515,11 +501,88 @@ h1 { font: 700 clamp(1.7rem, 3vw, 2.25rem)/1.15 system-ui, "Segoe UI", sans-seri
 @media (max-width: 47.99rem) {
   .featured-analysis .benchmark-tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; gap: .1rem; }
   .featured-analysis .benchmark-tabs a { flex: 0 0 auto; white-space: nowrap; padding-inline: .5rem; }
-  .featured-analysis .chart-panel { --chart-columns: minmax(0, 1fr) auto; }
-  .featured-analysis .chart-track { height: 1.45rem; margin-block: 0; }
-  .featured-analysis .chart-bar { inset-block: .24rem; }
   .catalog-table tbody th { min-width: 9rem; max-width: 9rem; }
   .catalog-table tbody th, .catalog-table thead th:first-child { position: sticky; inset-inline-start: 0; border-inline-end: 1px solid var(--line); }
   .catalog-table tbody th { z-index: 1; }
   .catalog-table thead th:first-child { z-index: 3; }
+}
+
+/* Shared benchmark and pricing charts */
+.chart-panel { --chart-columns: minmax(7rem, 1.1fr) minmax(3rem, 1.65fr) 4.75rem; }
+.chart-panel figcaption h2 { font-size: 1rem; letter-spacing: -.02em; }
+.chart-panel .chart-bars { gap: .12rem; margin-top: .65rem; }
+.chart-bars li { position: relative; }
+.chart-row { min-height: 2.45rem; padding: .28rem .4rem; }
+.chart-row[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); }
+.chart-name { display: flex; align-items: baseline; gap: .28rem; min-width: 0; }
+.chart-rank { flex: 0 0 auto; font-size: .7rem; font-variant-numeric: tabular-nums; }
+.chart-identity { min-width: 0; font-weight: 620; }
+.chart-identity small { display: block; color: var(--muted); font-size: .69rem; font-weight: 400; }
+.chart-track { height: 1.75rem; border-inline-end-color: var(--line); }
+.chart-bars[data-grid="3"] .chart-track { background-size: 50% 100%; background-image: linear-gradient(to right, var(--line) 0 1px, transparent 1px); }
+.chart-bars[data-grid="1"] .chart-track { background: none; border-inline-end: 0; border-inline-start: 1px solid var(--line); }
+.chart-bar, .chart-row[aria-pressed="true"] .chart-bar { background: var(--lab-color); inset-block: .42rem; border-radius: .22rem; }
+:root[data-theme="dark"] .chart-bar, :root[data-theme="dark"] .scatter-dot { background: color-mix(in srgb, var(--lab-color) 69%, #e6edff); }
+.chart-axis { padding-inline: calc(.4rem + 1px); }
+.chart-axis > div[data-ticks="3"] { display: grid; grid-template-columns: .5fr 1fr .5fr; gap: 0; }
+.chart-axis > div[data-ticks="5"] { display: grid; grid-template-columns: .5fr repeat(3, 1fr) .5fr; gap: 0; }
+.chart-axis [data-ticks] span { justify-self: center; }
+.chart-axis [data-ticks] span:first-child { justify-self: start; }
+.chart-axis [data-ticks] span:last-child { justify-self: end; }
+.chart-tooltip {
+  position: absolute; z-index: 3; inset-inline-end: .4rem; inset-block-end: calc(100% - .18rem);
+  padding: .35rem .55rem; border-radius: .4rem; background: var(--text); color: var(--surface);
+  font-size: .72rem; white-space: nowrap; opacity: 0; pointer-events: none;
+}
+.chart-bars li:hover .chart-tooltip:not([data-dismissed="true"]),
+.chart-row:focus-visible + .chart-tooltip:not([data-dismissed="true"]) { opacity: 1; }
+.scatter-plot { background: repeating-linear-gradient(to top, var(--line) 0 1px, transparent 1px 25%), var(--input); }
+.scatter-dot { background: var(--lab-color); color: #fff; text-shadow: 0 1px 2px #17212b; }
+.scatter-key .chart-row { grid-template-columns: minmax(0, 1fr) minmax(0, auto); }
+.scatter-key .chart-row strong { white-space: normal; text-align: end; }
+.comparison-charts .chart-panel, .rankings-workspace .chart-panel { border-radius: .65rem; }
+.rankings-workspace .ranking-insights { margin-top: .3rem; }
+.rankings-workspace .leaderboard tbody tr:hover { background: var(--surface-raised); }
+
+/* Homepage panels share the chart grammar and use separate measurement types. */
+.featured-analysis { background: transparent; border: 0; padding: 0; }
+.analytics-panels { display: grid; gap: .75rem; align-items: stretch; }
+.analytics-module {
+  --module-tone: #6b56ca;
+  min-width: 0; border: 1px solid var(--line); border-block-start: 3px solid var(--module-tone);
+  border-radius: .7rem; background: var(--surface); padding: clamp(.7rem, 1.35vw, 1rem);
+}
+.analytics-module > h3 { display: flex; align-items: center; gap: .45rem; font-size: 1.05rem; font-weight: 720; }
+.analytics-module > h3 span { width: .55rem; height: .55rem; border-radius: .12rem; background: var(--module-tone); }
+.module-kicker { color: var(--muted); font-size: .77rem; margin-block: .12rem .65rem; }
+.performance-module { --module-tone: #c28a23; display: flex; flex-direction: column; }
+.cost-module { --module-tone: #be6842; }
+.analytics-module .chart-panel { padding: .6rem 0 0; border: 0; border-top: 1px solid var(--line); border-radius: 0; }
+.analytics-module .chart-panel { --chart-columns: minmax(6.4rem, 1.28fr) minmax(2.5rem, 1fr) 3.75rem; }
+.analytics-module .chart-row { column-gap: .42rem; font-size: .78rem; }
+.analytics-module .chart-row strong { font-size: .72rem; }
+.cost-module .chart-panel { --chart-columns: minmax(6.4rem, 1.2fr) minmax(2.5rem, 1fr) 5.25rem; }
+.chart-bars .chart-row strong { text-align: end; }
+.analytics-module .chart-axis { column-gap: .42rem; }
+.analytics-module .dashboard-evidence { margin-top: .55rem; padding-top: .55rem; gap: .25rem .65rem; }
+.performance-state {
+  display: grid; place-content: center; justify-items: center; gap: .55rem; text-align: center; flex: 1;
+  min-height: 12.5rem; padding: 1rem; background: var(--surface-raised); border-radius: .55rem;
+}
+.performance-state svg { color: var(--module-tone); }
+.performance-state h4 { font-weight: 670; }
+.performance-state p, .performance-state a { font-size: .8rem; max-width: 28ch; }
+.performance-state p { color: var(--muted); }
+@media (min-width: 48rem) {
+  .analytics-panels { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cost-module { grid-column: 1 / -1; }
+}
+@media (min-width: 72rem) {
+  .analytics-panels { grid-template-columns: minmax(0, 1.25fr) minmax(0, .75fr) minmax(0, 1.15fr); }
+  .cost-module { grid-column: auto; }
+}
+@media (max-width: 35rem) {
+  .chart-row, .analytics-module .chart-row { grid-template-columns: minmax(0, 1fr) auto; row-gap: .12rem; }
+  .chart-track { height: 1rem; }
+  .chart-bar, .chart-row[aria-pressed="true"] .chart-bar { inset-block: .2rem; }
 }

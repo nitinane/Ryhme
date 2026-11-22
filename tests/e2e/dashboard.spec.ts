@@ -6,6 +6,12 @@ test("dashboard keeps benchmark evidence and search within desktop, tablet, and 
   const search = nav.getByRole("button", { name: /Search/ });
   const chart = page.getByRole("figure", { name: "SWE-bench Verified" });
   await expect(chart.getByRole("button", { name: /54\.6%/ })).toBeVisible();
+  await expect(chart.getByRole("button", { name: /54\.6%/ })).toHaveAccessibleDescription("Exact value: 54.6%");
+  await expect(page.getByRole("region", { name: "Performance" }).getByRole("heading", { name: "No comparable timing data" })).toBeVisible();
+  const cost = page.getByRole("region", { name: "Cost" });
+  await expect(cost.getByText(/USD per 1M tokens/)).toBeVisible();
+  await cost.getByRole("button").first().press("Enter");
+  await expect(cost.getByRole("link", { name: "Historical price source" })).toBeVisible();
   await chart.getByRole("button", { name: /54\.6%/ }).press("Enter");
   await expect(chart.getByRole("link", { name: "Benchmark result source" })).toHaveAttribute("href", /openai\.com/);
   for (const width of [1440, 768, 375]) {

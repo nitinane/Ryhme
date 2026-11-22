@@ -21,7 +21,7 @@ export function benchmarkComparisons(models: ModelDetail[]) {
       const key = benchmarkCohortKey(result);
       const group = groups.get(key) ?? { result, points: [], prices: new Map<string, PriceGroup>() };
       groups.set(key, group);
-      const point = { slug: model.slug, name: model.name, score: result.score.toString(), sourceUrl: result.sourceUrl };
+      const point = { slug: model.slug, name: model.name, labName: model.family.lab.name, labSlug: model.family.lab.slug, score: result.score.toString(), sourceUrl: result.sourceUrl };
       group.points.push(point);
 
       for (const offer of model.offerings) {

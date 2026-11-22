@@ -5,7 +5,7 @@ import { rankingCategories } from "./categories";
 import { scoreDirection, type RankingQuery } from "./query";
 
 type ScoreRow = {
-  rank: number; slug: string; name: string; labName: string; score: string; sourceUrl: string;
+  rank: number; slug: string; name: string; labName: string; labSlug: string; score: string; sourceUrl: string;
 };
 
 type EvaluationCohort = {
@@ -70,7 +70,7 @@ export async function rankings(query: RankingQuery, featured = false) {
   )` : Prisma.empty;
   const [result] = await db.$queryRaw<{ total: number; eligible: number; rows: ScoreRow[] }[]>`
     WITH eligible AS (
-      SELECT m.id, m.slug, m."canonicalName" AS name, l.name AS "labName"
+      SELECT m.id, m.slug, m."canonicalName" AS name, l.name AS "labName", l.slug AS "labSlug"
       FROM "ModelVersion" m JOIN "ModelFamily" f ON f.id = m."familyId"
       JOIN "Lab" l ON l.id = f."labId"
       WHERE TRUE ${providerFilter}
@@ -78,7 +78,7 @@ export async function rankings(query: RankingQuery, featured = false) {
         ${query.lab ? Prisma.sql`AND l.slug = ${query.lab}` : Prisma.empty}
         ${query.model ? Prisma.sql`AND m.slug = ${query.model}` : Prisma.empty}
     ), ranked AS (
-      SELECT (RANK() OVER (ORDER BY r.score ${better}))::integer AS rank, e.slug, e.name, e."labName",
+      SELECT (RANK() OVER (ORDER BY r.score ${better}))::integer AS rank, e.slug, e.name, e."labName", e."labSlug",
         r.score::text AS score, r."sourceUrl"
       FROM eligible e JOIN "BenchmarkResult" r ON r."modelVersionId" = e.id
       WHERE r."benchmarkId" = ${benchmark.id} AND r."sourceId" = ${cohort.sourceId}

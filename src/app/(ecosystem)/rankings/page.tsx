@@ -7,7 +7,7 @@ import { SourceLink } from "@/features/catalog/components/source-link";
 import { date } from "@/features/catalog/presentation";
 import { BenchmarkBars } from "@/features/benchmarks/components/benchmark-bars";
 import { RankingControls, rankingFilters } from "@/features/benchmarks/components/ranking-controls";
-import { scoreLabel } from "@/features/benchmarks/chart-data";
+import { displayScore, scoreLabel } from "@/features/benchmarks/chart-data";
 
 export const metadata: Metadata = { title: "Benchmark rankings | Ryhme" };
 
@@ -27,7 +27,7 @@ export default async function RankingsPage({ searchParams }: PageProps<"/ranking
   };
   return <main id="main-content" tabIndex={-1} className="frame page">
     <header className="page-heading"><h1>Benchmark rankings</h1><p>Compare model versions in the same published evaluation.</p></header>
-    <div className="analysis-workspace">
+    <div className="analysis-workspace rankings-workspace">
     <RankingControls action="/rankings" options={results} query={query} />
     {!benchmark || !cohort ? <section className="coverage-empty mt-5"><h2>No verified benchmark coverage</h2>
       <p className="muted mt-2">{categoryName(results.category)} has no comparable verified results in this view.</p>
@@ -81,7 +81,7 @@ export default async function RankingsPage({ searchParams }: PageProps<"/ranking
             <tbody>{data.map((row) => <tr key={row.slug}>
               <th scope="row">{row.rank}</th>
               <td><Link className="text-link" href={`/models/${row.slug}`}>{row.name}</Link><p className="muted text-sm">{row.labName}</p></td>
-              <td>{scoreLabel(row.score, benchmark.unit)}</td>
+              <td><span aria-hidden="true" title={scoreLabel(row.score, benchmark.unit)}>{displayScore(row.score, benchmark.unit)}</span><span className="sr-only">{scoreLabel(row.score, benchmark.unit)}</span></td>
               <td><SourceLink url={row.sourceUrl}>Result source</SourceLink></td>
             </tr>)}</tbody>
           </table>
