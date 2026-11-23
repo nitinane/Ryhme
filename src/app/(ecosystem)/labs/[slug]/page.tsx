@@ -1,3 +1,4 @@
+import { EditorialSearch, EditorialWorkspace, PageHeading, PageShell } from "@/components/editorial-page";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
@@ -12,18 +13,26 @@ const getLab = cache((value: string) => slug.safeParse(value).success ? findLab(
 
 export async function generateMetadata({ params }: PageProps<"/labs/[slug]">): Promise<Metadata> {
   const lab = await getLab((await params).slug);
-  return { title: lab ? `${lab.name} lab | Ryhme` : "AI lab | Ryhme" };
+  return { title: lab ? `${lab.name} lab | Rhyme` : "AI lab | Rhyme" };
 }
 
 export default async function LabPage({ params }: PageProps<"/labs/[slug]">) {
   const lab = await getLab((await params).slug);
   if (!lab) notFound();
-  return <main id="main-content" className="frame page">
-    <Link className="text-link" href="/labs">← AI labs</Link>
-    <div className="page-heading"><h1>{lab.name}</h1><p>{lab.description ?? "Model developer and publisher"}</p>
+  return <PageShell>
+    <PageHeading title={lab.name} label={<Link href="/labs">AI labs</Link>} tools={
+      <EditorialSearch label={`Search ${lab.name} models`} placeholder="Search this lab"><input type="hidden" name="lab" value={lab.slug} /></EditorialSearch>
+    }>
+      <p>{lab.description ?? "Model developer and publisher"}</p>
+    </PageHeading>
+    <EditorialWorkspace title="Model families" aside={<section className="studio-selection">
+      <h2>Publisher evidence</h2>
+      <dl><div><dt>Documented families</dt><dd>{lab.families.length}</dd></div></dl>
       {lab.website && <SourceLink url={lab.website}>Official lab website</SourceLink>}
-    </div>
-    <section aria-labelledby="families"><h2 id="families" className="mb-3">Model families</h2>
+      {lab.sources.length > 0 && <ul className="studio-source-links mt-2">{lab.sources.map(source => (
+        <li key={source.id}><SourceLink url={source.sourceUrl}>Lab identity source</SourceLink> · Observed {date(source.observedAt)}</li>
+      ))}</ul>}
+    </section>}>
       {lab.families.length ? <ul className="directory-grid">{lab.families.map((family) => (
         <li key={family.id} className="panel">
           <h3>{family.name}</h3>
@@ -40,9 +49,6 @@ export default async function LabPage({ params }: PageProps<"/labs/[slug]">) {
           ))}</ul> : <p className="muted mt-2">No model versions documented.</p>}
         </li>
       ))}</ul> : <p className="panel">No model families documented.</p>}
-    </section>
-    {lab.sources.length > 0 && <section className="panel mt-5"><h2>Sources</h2><ul className="detail-list">
-      {lab.sources.map((source) => <li key={source.id}><SourceLink url={source.sourceUrl}>Lab identity source</SourceLink> · Observed {date(source.observedAt)}</li>)}
-    </ul></section>}
-  </main>;
+    </EditorialWorkspace>
+  </PageShell>;
 }

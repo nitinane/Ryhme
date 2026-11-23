@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { EditorialSearch, PageHeading, PageShell } from "@/components/editorial-page";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { SourceLink } from "@/features/catalog/components/source-link";
@@ -10,10 +11,11 @@ import { CostCalculator } from "@/features/comparison/components/calculator";
 import { BrowseForComparison } from "@/features/comparison/components/selection";
 import { compareQuery } from "@/features/comparison/schemas/compare";
 import { BenchmarkBars } from "@/features/benchmarks/components/benchmark-bars";
+import { ChartSelectionProvider } from "@/features/benchmarks/components/chart-selection";
 import { ScoreCostPlot } from "@/features/comparison/components/score-cost-plot";
 import { benchmarkCohortKey, benchmarkComparisons } from "@/features/comparison/benchmark-comparison";
 
-export const metadata: Metadata = { title: "Compare models | Ryhme" };
+export const metadata: Metadata = { title: "Compare models | Rhyme" };
 const unknown = "Unknown";
 
 type Cell = { value: ReactNode; known?: string };
@@ -102,24 +104,26 @@ export default async function ComparePage({ searchParams }: PageProps<"/compare"
   const charts = models ? benchmarkComparisons(models) : [];
 
   return (
-    <main id="main-content" tabIndex={-1} className="frame page">
-      <div className="page-heading"><h1>Compare models</h1><p>See specifications, provider prices, and benchmark evidence side by side.</p></div>
-      {!models ? <section className="panel">
+    <PageShell>
+      <PageHeading label="Side by side" title="Compare" accent="models" tools={<EditorialSearch />}>
+        <p>See specifications, provider prices, and benchmark evidence side by side.</p>
+      </PageHeading>
+      {!models ? <section className="studio-board">
         <h2>{Object.keys(raw).length === 0 ? "Choose two to four models" : "Comparison unavailable"}</h2>
         <p className="muted my-3">{parsed.success
           ? "At least one selected model is no longer in the catalog."
           : "Select two to four distinct model versions in the catalog to start a comparison."}</p>
         <Link className="button primary" href="/models">Browse model catalog</Link>
       </section> : <>
-        <div className="comparison-tools">
-          <nav aria-label="Comparison sections">
+        <div className="comparison-tools studio-controls">
+          <nav className="benchmark-tabs" aria-label="Comparison sections">
             <a className="text-link" href="#performance-comparison">Performance</a>
             <a className="text-link" href="#comparison-matrix">Specifications and prices</a>
             {models.some(({ offerings }) => offerings.length > 0) && <a className="text-link" href="#calculator">Cost estimator</a>}
           </nav>
           <BrowseForComparison models={models.map(({ id, name }) => ({ id, name }))} />
         </div>
-        <section aria-labelledby="performance-comparison" className="mb-6">
+        <section aria-labelledby="performance-comparison" className="studio-board mb-6">
           <h2 id="performance-comparison" className="mb-3">Benchmark comparison</h2>
           {charts.length === 0 ? <p className="panel muted">Select models with scores from a shared verified evaluation to compare performance.</p>
             : <div className="grid gap-2">{charts.map(({ key, result, points, prices, rates }, index) => {
@@ -127,26 +131,27 @@ export default async function ComparePage({ searchParams }: PageProps<"/compare"
               return <details className="benchmark-disclosure" key={key} open={index === 0}>
                 <summary>{benchmark.name} <span className="muted text-sm">· {result.methodologyVersion ?? benchmark.version ?? "Version unknown"}
                   {result.evaluationConfig && ` / ${result.evaluationConfig}`}</span></summary>
-                <div className="comparison-charts">
+                <ChartSelectionProvider><div className="comparison-charts">
                   <BenchmarkBars title="Benchmark scores" metric={benchmark.metricName} unit={benchmark.unit}
                     direction={benchmark.direction} methodology={benchmark.methodology} evidenceDate={date(result.evaluatedAt)}
                     points={points} missing={models.length - points.length} />
                   {prices.map(({ key: priceKey, provider, currency, observedAt, points }) => (
                     <ScoreCostPlot key={priceKey}
-                      title={benchmark.name} unit={benchmark.unit} provider={provider} currency={currency} observed={date(observedAt)} points={points} />
+                      title={benchmark.name} unit={benchmark.unit} direction={benchmark.direction} provider={provider} currency={currency} observed={date(observedAt)} points={points} />
                   ))}
                   {rates.map(({ key: rateKey, provider, currency, observedAt, points }) => (
-                    <ScoreCostPlot key={rateKey} tokenRate title={benchmark.name} unit={benchmark.unit}
+                    <ScoreCostPlot key={rateKey} tokenRate title={benchmark.name} unit={benchmark.unit} direction={benchmark.direction}
                       provider={provider} currency={currency} observed={date(observedAt)} points={points} />
                   ))}
                   {prices.length === 0 && rates.length === 0 && <p className="panel muted">Score-versus-cost data is unavailable for the same provider, currency, and price observation date.</p>}
-                </div>
+                </div></ChartSelectionProvider>
               </details>;
             })}</div>}
         </section>
         <ComparisonSpecs models={models} />
         <PriceHistory models={models} />
-        <div id="comparison-matrix" className="matrix-scroll" tabIndex={0} role="region" aria-label="Scrollable model comparison">
+        <p id="comparison-scroll-note" className="catalog-scroll-hint catalog-note muted mb-2">Scroll the matrix horizontally to see every model. The attribute column stays in view.</p>
+        <div id="comparison-matrix" className="matrix-scroll" tabIndex={0} role="region" aria-label="Scrollable model comparison" aria-describedby="comparison-scroll-note">
           <table className="matrix">
             <caption className="sr-only">Specifications, offerings, pricing, and benchmark scores by model</caption>
             <thead><tr><th scope="col">Attribute</th>{models.map((model) => (
@@ -169,6 +174,6 @@ export default async function ComparePage({ searchParams }: PageProps<"/compare"
           offerings: model.offerings.map((offer) => ({ id: offer.id, provider: offer.provider.name, availabilityStatus: offer.availabilityStatus })),
         }))} />}
       </>}
-    </main>
+    </PageShell>
   );
 }

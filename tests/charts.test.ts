@@ -18,6 +18,13 @@ it("includes zero in signed score ranges and handles a zero-only cohort", () => 
   const scale = scoreScale([point, { ...point, score: "15" }], "ms");
   expect([scale.min, scale.max, scale.position(0)]).toEqual([-5, 15, 25]);
   expect(scoreScale([{ ...point, score: "0" }], "ms").position(0)).toBe(0);
+  expect(scale.description).toContain("Comparative scale");
+});
+
+it("does not imply a fixed percentage domain for out-of-range observations", () => {
+  const scale = scoreScale([{ slug: "a", name: "A", score: "-5", sourceUrl: "" }], "%");
+  expect([scale.min, scale.max]).toEqual([-5, 0]);
+  expect(scale.description).toContain("Comparative scale");
 });
 
 it("uses stable lab colors and keeps nonzero token prices visible after rounding", () => {

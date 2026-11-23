@@ -4,6 +4,7 @@ import Link from "next/link";
 import { type CSSProperties, useId, useState } from "react";
 import { SourceLink } from "@/features/catalog/components/source-link";
 import { displayScore, labColor, scoreLabel, scoreScale, type BenchmarkPoint } from "../chart-data";
+import { useChartSelection } from "./chart-selection";
 
 export function BenchmarkBars({ title, metric, unit, direction, methodology, evidenceDate, points, missing = 0, sourceLabel = "Benchmark result source" }: {
   title: string;
@@ -17,7 +18,7 @@ export function BenchmarkBars({ title, metric, unit, direction, methodology, evi
   sourceLabel?: string;
 }) {
   const id = useId();
-  const [selectedSlug, setSelectedSlug] = useState<string>();
+  const { selectedSlug, select } = useChartSelection();
   const [dismissedTooltip, setDismissedTooltip] = useState<string>();
   const selected = points.find(({ slug }) => slug === selectedSlug);
   const scale = scoreScale(points, unit);
@@ -30,6 +31,7 @@ export function BenchmarkBars({ title, metric, unit, direction, methodology, evi
     <figcaption>
       <h2 id={`${id}-title`}>{title}</h2>
       <p className="muted text-sm mt-1">{metric} ({unit}) · {direction === "HIGHER" ? "Higher is better" : "Lower is better"}</p>
+      <p className="muted text-xs mt-1">{scale.description}</p>
     </figcaption>
     {points.length === 0 ? <p className="muted mt-4">No comparable scores for this view.</p> : <>
       <ul className="chart-bars" data-grid={ticks.length}>
@@ -41,10 +43,11 @@ export function BenchmarkBars({ title, metric, unit, direction, methodology, evi
               aria-controls={`${id}-evidence`}
               onFocus={() => setDismissedTooltip(undefined)} onPointerEnter={() => setDismissedTooltip(undefined)}
               onKeyDown={(event) => { if (event.key === "Escape") setDismissedTooltip(point.slug); }}
-              onClick={() => setSelectedSlug(selected?.slug === point.slug ? undefined : point.slug)}>
+              onClick={() => select(point.slug)}>
               <span className="chart-name">{point.rank !== undefined && <span className="chart-rank">#{point.rank} </span>}<span className="chart-identity"><span>{point.name}</span>{point.labName && <small>{point.labName}</small>}</span></span>
               <span className="chart-track" aria-hidden="true"><span className="chart-bar"
-                style={{ insetInlineStart: `${Math.min(position, zero)}%`, width: `${Math.abs(position - zero)}%` }} /></span>
+                style={{ insetInlineStart: `${Math.min(position, zero)}%`, width: `${Math.abs(position - zero)}%` }} />
+                <span className="chart-end" style={{ insetInlineStart: `${position}%` }} /></span>
               <strong>{displayScore(point.score, unit, unit === "%" ? 2 : 4)}</strong>
             </button>
             <span id={tooltip} role="tooltip" className="chart-tooltip" data-dismissed={dismissedTooltip === point.slug}>

@@ -27,8 +27,16 @@ test("homepage ranks source-backed scores and links keyboard selections across v
   const selectedPrice = pricePlot.getByRole("button", { pressed: true });
   await expect(selectedPrice).toBeVisible();
   expect(await selectedPrice.getAttribute("aria-label")).toContain(`${rows[1].name}: ${scoreLabel(rows[1].score, meta.benchmark.unit)}`);
+  const reset = page.getByRole("button", { name: "Reset selection" });
+  await reset.press("Enter");
+  await expect(bars.first()).toHaveAttribute("aria-pressed", "true");
+  await expect(ranked).toHaveAttribute("aria-pressed", "false");
+  await expect(reset).toHaveAttribute("aria-disabled", "true");
   await page.getByRole("table").getByRole("button").first().press("Space");
   await expect(bars.first()).toHaveAttribute("aria-pressed", "true");
+  await expect(reset).toBeEnabled();
+  await reset.press("Enter");
+  await expect(reset).toHaveAttribute("aria-disabled", "true");
 
   await category.getByRole("link", { name: "Reasoning" }).press("Enter");
   await expect(category.getByRole("link", { name: "Reasoning" })).toHaveAttribute("aria-current", "page");

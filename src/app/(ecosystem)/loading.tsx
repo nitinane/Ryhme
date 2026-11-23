@@ -1,3 +1,5 @@
-export default function LoadingEcosystem() {
-  return <main id="main-content" className="frame page"><p className="panel" role="status">Loading catalog evidence…</p></main>;
+import { LoadingPage } from "@/components/editorial-page";
+
+export default function Loading() {
+  return <LoadingPage>Loading catalog evidence…</LoadingPage>;
 }

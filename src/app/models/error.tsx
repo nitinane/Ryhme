@@ -1,8 +1,9 @@
 "use client";
 
+import { PageNotice } from "@/components/editorial-page";
+
 export default function CatalogError({ reset }: { reset: () => void }) {
-  return <main id="main-content" className="frame page"><h1>Catalog unavailable</h1>
-    <p className="muted my-4" role="alert">The catalog could not be loaded.</p>
+  return <PageNotice title="Catalog unavailable" message="Model records could not be read from the configured database." alert>
     <button className="button" type="button" onClick={reset}>Try again</button>
-  </main>;
+  </PageNotice>;
 }

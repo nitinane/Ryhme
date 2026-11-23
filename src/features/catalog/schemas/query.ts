@@ -8,6 +8,20 @@ export const capabilities = {
 export const lifecycles = {
   ACTIVE: "Active", DEPRECATED: "Deprecated", RETIRED: "Retired", UNKNOWN: "Unknown",
 } as const;
+export const catalogCategories = {
+  text: "Text generation",
+  vision: "Image input",
+  multimodal: "Multimodal input",
+  image: "Image generation",
+  video: "Video generation",
+  audio: "Audio input",
+  "audio-output": "Audio output",
+  "tool-calling": "Tool calling",
+} as const;
+export const evidenceStatuses = { evaluated: "Verified benchmark evidence", unevaluated: "No verified benchmark evidence" } as const;
+export const pricingStatuses = { documented: "Observed USD input price", undocumented: "No observed USD input price" } as const;
+export type CatalogCategory = keyof typeof catalogCategories;
+export const catalogCategory = z.enum(Object.keys(catalogCategories) as CatalogCategory[]);
 
 const blank = (value: unknown) => value === "" ? undefined : value;
 const integer = z.string().regex(/^\d{1,10}$/).transform(Number);
@@ -19,6 +33,9 @@ export const catalogQuery = z.strictObject({
   provider: z.preprocess(blank, slug.optional()),
   capability: z.preprocess(blank, z.enum(["tool-calling", "structured-outputs"]).optional()),
   modality: z.preprocess(blank, z.enum(["text", "image", "audio", "video"]).optional()),
+  category: z.preprocess(blank, catalogCategory.optional()),
+  evidence: z.preprocess(blank, z.enum(["evaluated", "unevaluated"]).optional()),
+  pricing: z.preprocess(blank, z.enum(["documented", "undocumented"]).optional()),
   openWeights: z.preprocess(blank, z.enum(["true", "false"]).transform((value) => value === "true").optional()),
   license: z.preprocess(blank, z.string().max(100).optional()),
   availability: z.preprocess(blank, z.enum(["LISTED", "UNAVAILABLE", "UNKNOWN"]).optional()),

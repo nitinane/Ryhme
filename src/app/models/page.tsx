@@ -1,14 +1,16 @@
+import { EditorialSearch, PageHeading, PageNotice, PageShell } from "@/components/editorial-page";
 import Form from "next/form";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { SourceLink } from "@/features/catalog/components/source-link";
 import { FilterPanel } from "@/features/catalog/components/filter-panel";
+import { CategoryCoverage } from "@/features/catalog/components/category-coverage";
 import { CompareToggle } from "@/features/comparison/components/selection";
-import { catalogOptions, listModels } from "@/features/catalog/services/models";
-import { capabilities, catalogQuery, lifecycles } from "@/features/catalog/schemas/query";
+import { catalogCoverage, catalogOptions, listModels } from "@/features/catalog/services/models";
+import { capabilities, catalogCategories, catalogQuery, evidenceStatuses, lifecycles, pricingStatuses } from "@/features/catalog/schemas/query";
 import { availability, capabilityNames, number, utcTime } from "@/features/catalog/presentation";
 
-export const metadata: Metadata = { title: "Model catalog | Ryhme" };
+export const metadata: Metadata = { title: "Model catalog | Rhyme" };
 
 const sorts = {
   discovered: "Recently discovered",
@@ -23,42 +25,86 @@ export default async function ModelsPage({ searchParams }: PageProps<"/models">)
   const raw = await searchParams;
   const parsed = catalogQuery.safeParse(raw);
   if (!parsed.success) {
-    return <main id="main-content" className="frame page"><h1>Model catalog</h1><p className="panel" role="alert">
-      The search parameters are invalid. <Link className="text-link" href="/models">Reset filters</Link>
-    </p></main>;
+    return <PageNotice title="Model catalog" message="The search parameters are invalid." alert>
+      <Link className="button" href="/models">Reset filters</Link>
+    </PageNotice>;
   }
   const query = parsed.data;
-  const active = Object.entries(query).filter(([key, value]) =>
-    !["page", "limit", "sort"].includes(key) && value !== undefined && value !== "").length;
-  const [{ data, meta }, options] = await Promise.all([listModels(query), catalogOptions()]);
+  const [{ data, meta, breakdown }, options, coverage] = await Promise.all([listModels(query, Boolean(query.category)), catalogOptions(), catalogCoverage()]);
+  const selectedCoverage = coverage.categories.find(({ category }) => category === query.category) ?? coverage;
+  const filterLabels = {
+    q: "Search", family: "Family", lab: "Publisher", provider: "Provider", capability: "Capability", modality: "Input",
+    availability: "Availability", lifecycle: "Lifecycle", openWeights: "Weights", license: "License",
+    minContext: "Minimum context", maxInputPrice: "Maximum USD input rate", evidence: "Evidence", pricing: "Pricing",
+  };
+  const filterValues = {
+    family: options.families.find(({ slug }) => slug === query.family)?.name,
+    lab: options.labs.find(({ slug }) => slug === query.lab)?.name,
+    provider: options.providers.find(({ slug }) => slug === query.provider)?.name,
+    capability: query.capability && capabilities[query.capability],
+    availability: query.availability && availability[query.availability],
+    lifecycle: query.lifecycle && lifecycles[query.lifecycle],
+    openWeights: query.openWeights === undefined ? undefined : query.openWeights ? "Open" : "Closed",
+    evidence: query.evidence && evidenceStatuses[query.evidence],
+    pricing: query.pricing && pricingStatuses[query.pricing],
+  };
+  const active = (Object.keys(filterLabels) as (keyof typeof filterLabels)[])
+    .filter(key => query[key] !== undefined && query[key] !== "");
 
   const syncedAt = options.catalogSyncedAt;
 
-  function catalogHref(change: { page: number } | { sort: keyof typeof sorts }) {
+  function catalogHref(change: Record<string, string | number | undefined>) {
     const params = new URLSearchParams();
     for (const [key, value] of Object.entries(raw)) {
       if (typeof value === "string" && value && key !== "page") params.set(key, value);
     }
-    for (const [key, value] of Object.entries(change)) params.set(key, String(value));
-    return `/models?${params}`;
+    for (const [key, value] of Object.entries(change)) {
+      if (value === undefined) params.delete(key);
+      else params.set(key, String(value));
+    }
+    return params.size ? `/models?${params}` : "/models";
   }
 
   return (
-    <main id="main-content" className="frame page">
-      <div className="page-heading">
-        <h1>All models</h1>
-
+    <PageShell>
+      <PageHeading label="Model catalog" title="All" accent="models" tools={
+        <EditorialSearch key={JSON.stringify(query)} label="Model name or family" button="Search" query={query.q}>
+          {Object.entries(raw).map(([key, value]) => typeof value === "string" && !["q", "page"].includes(key)
+            ? <input key={key} type="hidden" name={key} value={value} /> : null)}
+        </EditorialSearch>
+      }>
         <p className="text-sm">Last successful OpenRouter sync {syncedAt
           ? <><time dateTime={syncedAt.toISOString()}>{utcTime(syncedAt)}</time>{options.syncOverdue && " · Sync overdue"}</>
           : "· Awaiting first scheduled run"}</p>
-      </div>
+      </PageHeading>
       <div className="catalog-workspace">
+        <nav className="benchmark-tabs" aria-label="Model categories">
+          <Link href={catalogHref({ category: undefined })} aria-current={!query.category ? "page" : undefined}>All models <span className="catalog-number">{number(coverage.total)}</span></Link>
+          {coverage.categories.filter(({ category, total }) => total > 0 || category === query.category).map(({ category, total }) =>
+            <Link key={category} href={catalogHref({ category })} aria-current={category === query.category ? "page" : undefined}>
+              {catalogCategories[category]} <span className="catalog-number">{number(total)}</span>
+            </Link>)}
+        </nav>
+        <p className="muted text-sm my-3">
+          {number(selectedCoverage.total)} cataloged · {number(selectedCoverage.evaluated)} evaluated before filters.
+          Categories can overlap. <Link className="text-link" href="/rankings">Rankings by benchmark cohort</Link>
+        </p>
+        {(query.category || active.length > 0) && <ul className="flex flex-wrap items-center gap-2 my-3" aria-label="Active catalog filters">
+          {query.category && <li><Link className="button catalog-filter-chip" href={catalogHref({ category: undefined })} aria-label={`Remove category: ${catalogCategories[query.category]}`}>
+            {catalogCategories[query.category]} <span aria-hidden="true">×</span>
+          </Link></li>}
+          {active.map(key => {
+            const label = `${filterLabels[key]}: ${Object.hasOwn(filterValues, key) ? filterValues[key as keyof typeof filterValues] ?? query[key] : query[key]}`;
+            return <li key={key} className="min-w-0"><Link className="button catalog-filter-chip" href={catalogHref({ [key]: undefined })} aria-label={`Remove ${label}`}>
+              {label} <span aria-hidden="true">×</span>
+            </Link></li>;
+          })}
+          <li><Link className="text-link" href="/models">Clear all</Link></li>
+        </ul>}
         <Form action="/models" className="catalog-controls" key={JSON.stringify(query)}>
-          <div className="catalog-search">
-            <label>Model name<input name="q" type="search" maxLength={120} defaultValue={query.q} placeholder="Search models" /></label>
-            <button type="submit" className="button primary">Search</button>
-          </div>
-          <FilterPanel active={active} label="Catalog filters" desktopOpen={false}>
+          <input type="hidden" name="q" value={query.q ?? ""} />
+          {query.category && <input type="hidden" name="category" value={query.category} />}
+          <FilterPanel active={active.length} label="Catalog filters" desktopOpen={false}>
             <div className="filters">
             <label>Family<select name="family" defaultValue={query.family ?? ""}><option value="">All families</option><Options entries={options.families} /></select></label>
             <label>Lab<select name="lab" defaultValue={query.lab ?? ""}><option value="">All labs</option><Options entries={options.labs} /></select></label>
@@ -72,6 +118,14 @@ export default async function ModelsPage({ searchParams }: PageProps<"/models">)
             <label>Availability<select name="availability" defaultValue={query.availability ?? ""}>
               <option value="">Any offering status</option>
               {Object.entries(availability).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            </select></label>
+            <label>Benchmark evidence<select name="evidence" defaultValue={query.evidence ?? ""}>
+              <option value="">Any evidence status</option>
+              {Object.entries(evidenceStatuses).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            </select></label>
+            <label>Pricing availability<select name="pricing" defaultValue={query.pricing ?? ""}>
+              <option value="">Any pricing status</option>
+              {Object.entries(pricingStatuses).map(([value, label]) => <option key={value} value={value}>{label} (listed offerings)</option>)}
             </select></label>
             <label>Lifecycle<select name="lifecycle" defaultValue={query.lifecycle ?? ""}><option value="">Any lifecycle</option>
               {Object.entries(lifecycles).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
@@ -90,16 +144,17 @@ export default async function ModelsPage({ searchParams }: PageProps<"/models">)
             </select></label>
             <div className="flex flex-wrap items-center gap-3">
               <button type="submit" className="button primary">Apply filters</button>
-              <Link href="/models" className="text-link text-sm">Clear</Link>
+              <Link href="/models" className="text-link text-sm">Clear all</Link>
             </div>
             {query.limit !== 20 && <input type="hidden" name="limit" value={query.limit} />}
             </div>
           </FilterPanel>
         </Form>
-        <section aria-labelledby="results-heading" className="min-w-0">
-          <div className="results-heading">
+        {query.category && breakdown && <CategoryCoverage category={query.category} total={meta.total} breakdown={breakdown} />}
+        <section aria-labelledby="results-heading" className="studio-board">
+          <div className="studio-section-head results-heading">
             <h2 id="results-heading">{meta.total ? `${number(meta.total)} model versions` : "Model versions"}</h2>
-            <p role="status" className="muted">{meta.total} {meta.total === 1 ? "result" : "results"}</p>
+            <p role="status" className="studio-label">{meta.total} {meta.total === 1 ? "result" : "results"}</p>
           </div>
           {data.length === 0 ? (
             <div className="panel">
@@ -141,9 +196,9 @@ export default async function ModelsPage({ searchParams }: PageProps<"/models">)
                   return <tr key={model.id}>
                     <th scope="row">
                       <Link className="model-link" href={`/models/${model.slug}`}>{model.name}</Link>
-                      <span className="catalog-lab">{model.family.lab.name}{model.recentlyAdded && <small>New to Ryhme</small>}</span>
+                      <span className="catalog-lab">{model.family.lab.name}</span>
                     </th>
-                    <td>{model.family.name}<p className="muted text-xs">{model.verifiedResults ? "Verified benchmark evidence" : "Unranked"}</p></td>
+                    <td>{model.family.name}<p className="catalog-evidence-state">{model.verifiedResults ? "Evaluated · Verified evidence" : "No verified benchmark evidence"}</p></td>
                     <td className="catalog-number">{model.contextTokens == null ? "—" : number(model.contextTokens)}</td>
                     <td className="catalog-number">{price?.inputPerMillion == null ? "—" : `${price.currency} ${price.inputPerMillion}`}</td>
                     <td className="catalog-number">{price?.outputPerMillion == null ? "—" : `${price.currency} ${price.outputPerMillion}`}</td>
@@ -154,6 +209,7 @@ export default async function ModelsPage({ searchParams }: PageProps<"/models">)
                         <summary>Evidence</summary>
                         <span>{attributed.provider.name} · {lifecycles[model.lifecycle]} · Updated <time dateTime={model.updatedAt.toISOString()}>{utcTime(model.updatedAt)}</time></span>
                         <SourceLink url={attributed.sourceUrl}>{attributed.source.name} offering source</SourceLink>
+                        {price && <span><SourceLink url={price.sourceUrl}>Price source</SourceLink> · Observed <time dateTime={price.observedAt.toISOString()}>{utcTime(price.observedAt)}</time></span>}
                       </details>}
                     </td>
                     <td><CompareToggle id={model.id} name={model.name} /></td>
@@ -162,7 +218,7 @@ export default async function ModelsPage({ searchParams }: PageProps<"/models">)
               </table>
             </div>
           </>}
-          {data.length > 0 && <p id="catalog-price-note" className="catalog-note muted">Historical token rates from a single offering per row. — means undocumented.</p>}
+          {data.length > 0 && <p id="catalog-price-note" className="catalog-note muted">Historical token rates from one offering per row. A dash means undocumented. Ranking eligibility is determined separately for each benchmark cohort.</p>}
           {(meta.page > 1 || meta.hasMore) && <nav className="pagination" aria-label="Catalog pages">
             {meta.page > 1 && <Link className="button" href={catalogHref({ page: meta.page - 1 })}>Previous page</Link>}
             <span className="muted">Page {meta.page} of {Math.ceil(meta.total / meta.limit)}</span>
@@ -170,6 +226,6 @@ export default async function ModelsPage({ searchParams }: PageProps<"/models">)
           </nav>}
         </section>
       </div>
-    </main>
+    </PageShell>
   );
 }

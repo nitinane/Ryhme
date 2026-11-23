@@ -1,4 +1,4 @@
-# Ryhme — Execution-ready engineering pack
+# Rhyme
 
 **Mission:** Ship a credible AI model discovery and intelligence platform for a Full Stack Engineer internship assessment.
 **Hard submission deadline:** **2026-11-23 19:00 IST (Asia/Kolkata)**. Treat this as the submission cutoff; aim to finish deploy and verification earlier. **As-of planning date:** 2026-11-20.
@@ -9,29 +9,57 @@
 3. Real PostgreSQL-backed data and working API routes; do not pass mock-only UI off as complete.
 4. Reliable seeded dataset; no invented benchmark values, prices, source URLs, or verification claims.
 
-## Chosen architecture
-Next.js App Router + React + TypeScript + Tailwind; Next.js route handlers and server components; Prisma + Neon PostgreSQL; Auth.js Google OAuth; Groq for advisor, query interpretation and optional playground; OpenRouter + Hugging Face + official documentation + curated sourced benchmarks; GitHub Actions + Vercel. Modular monolith, no Redis, microservices, or separate search infrastructure.
+## Architecture
 
-## Run Ryhme locally
+Rhyme is a Next.js App Router application using React, TypeScript, Tailwind CSS, Prisma, and PostgreSQL. Server-rendered pages and JSON API route handlers use the same database services. Client components handle search, comparison selection, and chart interactions. GitHub Actions runs the test suite. The repository has a manual Vercel Preview configuration.
 
-Use Node.js 24, npm, and an isolated PostgreSQL development database (Neon for hosted development). Run the commands from this directory.
+## Run Rhyme locally
 
-```powershell
-npm ci
-Copy-Item .env.example .env.local
-```
+Use Node.js 24. Run commands from the application repository, the directory containing `package.json`.
 
-Set `DATABASE_URL` in `.env.local`. For Neon, use the pooled connection for the app and put the direct connection in `DIRECT_URL` for migrations. Prisma CLI and Next.js both load `.env.local`. Follow the [hosted handoff](09_DEPLOYMENT_AND_TESTING_RUNBOOK.md#hosted-verification-handoff) to verify an isolated Neon target before approved writes and scope the URL to Vercel Preview.
+### Existing 596-model catalog
+
+On the rehearsal machine, PostgreSQL is already listening on loopback port `55493`. These PowerShell variables point the current shell to the local catalog even if `.env.local` contains hosted settings. If dependencies are missing, run `npm.cmd ci` first.
 
 ```powershell
-npm run db:migrate
-npm run db:seed
-npm run dev
+$env:DATABASE_URL = 'postgresql://postgres@127.0.0.1:55493/ryhme_local_catalog'
+$env:DIRECT_URL = $env:DATABASE_URL
+npm.cmd run db:generate
+npm.cmd run dev -- --hostname 127.0.0.1 --port 3000
 ```
 
-Open `http://localhost:3000`. The homepage reads the catalog size from PostgreSQL. `GET /api/health` returns 200 when the catalog table can be queried and a safe 503 otherwise.
+Open [the local model catalog](http://localhost:3000/models). Expect **596 model versions**. A new PowerShell tab can check the app with `Invoke-RestMethod http://localhost:3000/api/health`. Press **Ctrl+C** in the app terminal to stop Next.js.
+
+For a production-mode localhost preview, set the same two variables and run:
+
+```powershell
+npm.cmd run build
+npm.cmd run start -- --hostname 127.0.0.1 --port 3000
+```
+
+### Fresh local database
+
+Create an empty PostgreSQL database on your machine. In a new shell, copy `.env.example` to `.env.local` if the file does not already exist and set both URLs to the new local database. Then initialize it with the checked-in migrations and seed.
+
+```powershell
+npm.cmd ci
+npm.cmd run db:migrate
+npm.cmd run db:seed
+npm.cmd run dev -- --hostname 127.0.0.1 --port 3000
+```
 
 The offline seed contains four model versions across two labs and two providers. It includes three GPT-4.1 snapshots with [publisher-reported launch prices and benchmark results](https://openai.com/index/gpt-4-1/) and Gemma 3 27B Instruct with a [Google DeepMind model card](https://huggingface.co/google/gemma-3-27b-it) and an [OpenRouter listing observation](https://openrouter.ai/api/v1/models/google/gemma-3-27b-it/endpoints). Repeated seeding preserves existing records and historical observations.
+
+## How the workflow fits together
+
+1. **Discover.** Open `/models`, search by model name or family, and narrow the list by category, publisher, provider, or evidence. PostgreSQL returns a page and the total matching count. Category charts use the full filtered set and the URL preserves the active filters.
+2. **Inspect and compare.** Open a model for specifications, offerings, historical prices, and source links. Select two to four versions to compare. Choose documented offerings in the estimator and enter a token workload to calculate costs from those historical rates.
+3. **Evaluate.** Open `/rankings` and select a benchmark and cohort. Rankings use verified results from the same evaluation. The audited local catalog has eight active scores across three benchmarks. Models without comparable evidence remain discoverable and unranked.
+4. **Follow the ecosystem.** Browse `/labs` for publishers and model families, then `/providers` for services and their offerings.
+
+Catalog metadata and dated observations are stored in PostgreSQL. Prisma services read them for pages and APIs. Source records link model metadata, offering prices, and benchmark results back to their evidence. Startup, search, and comparison read the configured database. Catalog refreshes and migrations run separately.
+
+## Checks and hosting
 
 Run `npm run lint`, `npm run typecheck`, `npm test`, and `npm run build`. For browser tests, create a fresh local PostgreSQL 17 database named `ryhme_test`. In a dedicated shell, set `PLAYWRIGHT_DATABASE_URL` to that database's URL at `127.0.0.1` with an explicit port, and set both `DATABASE_URL` and `DIRECT_URL` to the same local URL before running these commands.
 
@@ -44,6 +72,8 @@ npm run test:e2e
 ```
 
 Playwright uses `PLAYWRIGHT_DATABASE_URL` for its own app servers and verifies the checked-in four-model seed before running tests. GitHub Actions uses the same fixture and also checks that running the seed twice preserves the dataset. Vercel can use its Next.js preset and `npm run build`. Apply reviewed migrations as a separate controlled step.
+
+For hosting, follow the [Preview handoff](09_DEPLOYMENT_AND_TESTING_RUNBOOK.md#hosted-verification-handoff). Use a pooled runtime URL in Preview and a separate direct connection for approved migrations.
 
 ## Catalog and comparison
 
@@ -59,7 +89,7 @@ Open `/rankings` to browse SWE-bench Verified, GPQA Diamond, and AIME 2024. Resu
 
 `/labs` groups versions by the organization that publishes them. `/providers` searches API providers by provider or model name and filters by dated availability and model capability. The directories link to model details and expose `GET /api/labs`, `GET /api/labs/:slug`, `GET /api/providers`, `GET /api/providers/:slug`, and `GET /api/rankings`.
 
-For an opt-in refresh of the OpenRouter listing, configure the seeded development database and run `npm run db:ingest:openrouter`. It makes one unauthenticated metadata GET with an eight-second timeout. It checks the exact allowlisted model ID and only updates a matching positive listing observation. OpenRouter routes can quote different prices. The gateway-level cost remains unknown. App startup, build, tests, and seeding use the checked-in snapshot.
+For an opt-in refresh of the OpenRouter listing, configure the seeded development database and run `npm run db:ingest:openrouter`. It makes one unauthenticated metadata GET with an eight-second timeout. It checks the exact allowlisted model ID and only updates a matching positive listing observation. OpenRouter routes can quote different prices. The gateway-level cost remains unknown. The seed uses checked-in source observations.
 
 For broad catalog sync, run `npm run db:sync:openrouter` to preview against the verified Neon development branch in a read-only transaction. Only after approval, run `npm run db:sync:openrouter -- --apply <preview-hash>`. The hash binds the exact UTC observation day, rows, conflicts, and planned writes. A changed plan requires a new preview. Sync uses a serializable transaction and the existing schema.
 

@@ -9,10 +9,13 @@ test("keyboard navigation switches verified rankings and exposes method and limi
   await expect(page.getByRole("heading", { name: "SWE-bench Verified" })).toBeVisible();
   await expect(page.getByText("2 scored · 2 without a comparable score")).toBeVisible();
   const chart = page.getByRole("figure", { name: "Ranked scores" });
-  await expect(chart.getByRole("button", { name: /#1 GPT-4\.1.*54\.6%/ })).toBeVisible();
-  await chart.getByRole("button", { name: /#1 GPT-4\.1.*54\.6%/ }).press("Enter");
-  await expect(chart.getByRole("link", { name: "Benchmark result source" })).toBeVisible();
-  await expect(page.getByText("Evaluation date Unknown", { exact: false })).toBeVisible();
+  const secondScore = chart.getByRole("button", { name: /Rank 2, GPT-4\.1 mini: 23\.6%/ });
+  await secondScore.press("Enter");
+  await expect(page.getByRole("link", { name: "Benchmark result source" })).toBeVisible();
+  await expect(page.getByRole("table").getByRole("button", { name: /GPT-4\.1 mini/ })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("figure", { name: "Price vs. score" }).getByRole("button", { name: /GPT-4\.1 mini/ }))
+    .toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator(".studio-cohort").getByText("Unknown", { exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "OpenAI benchmark source" })).toHaveAttribute("href", /openai\.com\/index\/gpt-4-1/);
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(375);
   await page.getByRole("link", { name: "Mathematics" }).press("Enter");

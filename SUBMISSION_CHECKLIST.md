@@ -5,8 +5,8 @@
 ## URLs
 - [ ] Live Vercel URL: `________________`
 - [ ] GitHub repository URL: `________________`
-- [ ] Loom video URL (public/viewable): `________________`
-- [ ] Actual submission portal/form: `________________`
+- [ ] Loom video URL (viewable, 5–10 minutes): `________________`
+- [ ] Submit the three URLs through the [assessment Google Form](https://forms.gle/oDQ6ucjpiFaZtCGL9).
 
 ## Mandatory product demo
 - [ ] Discovery: search, filters, sorting, pagination and shareable URL
@@ -26,8 +26,15 @@
 - [ ] README setup/deployment/architecture instructions current
 - [ ] `.env.example` contains variable names only
 
-## Loom outline (suggested 2–4 minutes)
-0:00 problem and product goal; 0:20 discover/filter; 0:50 model details and provenance; 1:15 compare/cost; 1:55 rankings; 2:20 labs/providers; 2:45 stack, schema and testing; 3:10 deployment/repo. Adjust to actual working features. Record real application, not static mockups.
+## Loom outline (5–10 minutes required)
+
+| Time | Show and explain |
+| --- | --- |
+| 0:00–0:45 | Product goal and selected Full Stack Engineer role |
+| 0:45–2:30 | Search, category filters, sorting, model details, and source provenance |
+| 2:30–4:30 | Comparison, pricing units, benchmark cohorts, and lab/provider distinctions |
+| 4:30–6:30 | Frontend, API routes, PostgreSQL/Prisma schema, and why those layers are separate |
+| 6:30–7:30 | Testing, deployment, and a technical challenge or limitation |
 
 ## Final actions
 - [ ] Verify all three URLs in a logged-out/incognito browser

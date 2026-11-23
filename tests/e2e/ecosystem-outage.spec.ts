@@ -53,6 +53,10 @@ test("ecosystem pages and APIs handle an unreachable PostgreSQL connection", asy
       await expect(page.getByRole("heading", { name: "Catalog evidence unavailable" })).toBeVisible();
       await expect(page.getByRole("button", { name: "Try again" })).toBeVisible();
     }
+    await page.goto(base + "/models");
+    await expect(page.getByRole("heading", { name: "Catalog unavailable" })).toBeVisible();
+    await expect(page.getByRole("main").getByRole("alert")).toContainText("configured database");
+    await expect(page.getByRole("table")).toHaveCount(0);
   } finally {
     server.kill();
   }

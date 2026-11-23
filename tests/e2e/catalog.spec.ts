@@ -8,7 +8,6 @@ test("catalog search, filters, stable pagination, and URL restore query PostgreS
   await page.goto("/models?q=GPT-4.1&limit=1");
   await expect(page.getByRole("status")).toHaveText("3 results");
   await expect(page.getByText(/Last successful OpenRouter sync.*Awaiting first scheduled run/)).toBeVisible();
-  await expect(page.getByText(/^New to /).first()).toBeVisible();
   const table = page.getByRole("table");
   await table.getByText("Evidence", { exact: true }).first().click();
   await expect(table.getByRole("link", { name: /offering source/i }).first()).toBeVisible();
@@ -17,7 +16,7 @@ test("catalog search, filters, stable pagination, and URL restore query PostgreS
   await expect(page).toHaveURL(/page=2/);
   await expect(page.getByRole("link", { name: "GPT-4.1 mini", exact: true })).toBeVisible();
   await page.reload();
-  await expect(page.getByRole("searchbox", { name: "Model name" })).toHaveValue("GPT-4.1");
+  await expect(page.getByRole("searchbox", { name: "Model name or family" })).toHaveValue("GPT-4.1");
 
   await page.getByText("Catalog filters", { exact: false }).first().click();
   await page.getByRole("combobox", { name: "Family", exact: true }).selectOption("gpt-4-1");
@@ -42,6 +41,32 @@ test("catalog search, filters, stable pagination, and URL restore query PostgreS
   await expect(page.getByRole("link", { name: "Go to first page" })).toBeVisible();
   await page.goto("/models?limit=0");
   await expect(page.getByRole("alert").filter({ hasText: "The search parameters are invalid" })).toBeVisible();
+});
+
+test("catalog categories combine metadata filters and preserve accessible URL controls", async ({ page, request }) => {
+  const family = await request.get("/api/models?q=Gemma%203");
+  expect((await family.json()).meta.total).toBe(1);
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto("/models");
+  const categories = page.getByRole("navigation", { name: "Model categories" });
+  await expect(categories.getByRole("link", { name: "All models 4" })).toHaveAttribute("aria-current", "page");
+  await expect(categories.getByRole("link", { name: /Image generation/ })).toHaveCount(0);
+  const imageInput = categories.getByRole("link", { name: /Image input/ });
+  await imageInput.press("Enter");
+  await expect(imageInput).toHaveAttribute("aria-current", "page");
+  await page.getByText("Catalog filters", { exact: false }).first().click();
+  await page.getByRole("combobox", { name: "Benchmark evidence" }).selectOption("evaluated");
+  await page.getByRole("combobox", { name: "Pricing availability" }).selectOption("documented");
+  await page.getByRole("button", { name: "Apply filters" }).press("Enter");
+  await expect(page).toHaveURL(url => url.searchParams.get("category") === "vision"
+    && url.searchParams.get("evidence") === "evaluated" && url.searchParams.get("pricing") === "documented");
+  await expect(page.getByRole("status")).toHaveText("2 results");
+  await expect(page.getByRole("table").getByText(/Evaluated/)).toHaveCount(2);
+  await page.getByRole("link", { name: /Remove Evidence/ }).press("Enter");
+  await expect(page).toHaveURL(url => !url.searchParams.has("evidence") && url.searchParams.get("category") === "vision");
+  await page.getByRole("link", { name: "Clear all", exact: true }).first().press("Enter");
+  await expect(page).toHaveURL(/\/models$/);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(375);
 });
 
 test("global keyboard search opens, restores focus, and navigates to sourced model details", async ({ page }) => {
@@ -102,6 +127,8 @@ test("model selection, comparison links and historical costs work on a narrow sc
   await expect(page.getByRole("heading", { name: "Context windows" })).toBeVisible();
   await scoreCost.first().getByRole("button", { name: /GPT-4\.1 mini/ }).press("Enter");
   await expect(scoreCost.first().getByRole("link", { name: "Historical price source" })).toBeVisible();
+  const benchmark = page.getByRole("figure", { name: "Benchmark scores" }).first();
+  await expect(benchmark.getByRole("button", { name: /GPT-4\.1 mini/ })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByRole("cell", { name: "No score reported" })).toBeVisible();
   const matrix = page.getByRole("region", { name: "Scrollable model comparison" });
   await matrix.focus();

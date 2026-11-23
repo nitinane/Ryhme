@@ -4,13 +4,16 @@ import { availability } from "@/features/catalog/presentation";
 import { capabilities } from "@/features/catalog/schemas/query";
 import type { ProviderQuery } from "../query";
 
-export function DirectoryFilters({ action, query, provider, searchLabel }: {
-  action: string; query: ProviderQuery; provider?: boolean; searchLabel: string;
+export function DirectoryFilters({ action, query, provider, searchLabel, placeholder = searchLabel }: {
+  action: string; query: ProviderQuery; provider?: boolean; searchLabel: string; placeholder?: string;
 }) {
-  return <Form action={action} className="panel directory-filters" key={JSON.stringify(query)}>
+  return <Form action={action} className="editorial-directory-form" key={JSON.stringify(query)}>
     {query.limit !== 20 && <input type="hidden" name="limit" value={query.limit} />}
-    <label>{searchLabel}<input type="search" name="q" maxLength={120} defaultValue={query.q} /></label>
-    {provider && <>
+    <div className="home-search">
+      <input aria-label={searchLabel} placeholder={placeholder} type="search" name="q" maxLength={120} defaultValue={query.q} />
+      <button type="submit" className="button primary">Apply filters</button>
+    </div>
+    {provider && <div className="editorial-directory-options">
       <label>Availability<select name="availability" defaultValue={query.availability ?? ""}>
         <option value="">Any availability</option>
         {Object.entries(availability).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
@@ -19,11 +22,8 @@ export function DirectoryFilters({ action, query, provider, searchLabel }: {
         <option value="">Any capability</option>
         {Object.entries(capabilities).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
       </select></label>
-    </>}
-    <div className="flex flex-wrap items-center gap-3">
-      <button type="submit" className="button primary">Apply filters</button>
-      <Link className="text-link" href={action}>Clear filters</Link>
-    </div>
+    </div>}
+    {(query.q || query.availability || query.capability) && <Link className="text-link" href={action}>Clear filters</Link>}
   </Form>;
 }
 

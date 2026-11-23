@@ -2,7 +2,7 @@ import "server-only";
 import { Prisma } from "@/generated/prisma/client";
 import { getDb } from "@/lib/db/client";
 import { isRecentlyAdded } from "../presentation";
-import type { CatalogQuery } from "../schemas/query";
+import type { CatalogCategory, CatalogQuery } from "../schemas/query";
 
 const latestPrice = {
   orderBy: [{ observedAt: "desc" }, { id: "desc" }],
@@ -108,15 +108,82 @@ const orders = {
   price: Prisma.sql`"usdInput" ASC NULLS LAST`,
 };
 
-export async function listModels(query: CatalogQuery) {
+const verifiedEvidence = Prisma.sql`EXISTS (
+  SELECT 1 FROM "BenchmarkResult" r
+  WHERE r."modelVersionId" = m.id AND r."verifiedStatus" = 'VERIFIED' AND r."supersededAt" IS NULL
+)`;
+
+export const categoryCriteria: Record<CatalogCategory, Prisma.Sql> = {
+  text: Prisma.sql`m.modalities @> '{"output":["text"]}'::jsonb`,
+  vision: Prisma.sql`m.modalities @> '{"input":["image"]}'::jsonb`,
+  multimodal: Prisma.sql`CASE WHEN jsonb_typeof(m.modalities->'input') = 'array' THEN (
+    SELECT count(DISTINCT mode) > 1
+    FROM jsonb_array_elements_text(m.modalities->'input') AS modes(mode)
+    WHERE mode IN ('text', 'image', 'audio', 'video')
+  ) ELSE FALSE END`,
+  image: Prisma.sql`m.modalities @> '{"output":["image"]}'::jsonb`,
+  video: Prisma.sql`m.modalities @> '{"output":["video"]}'::jsonb`,
+  audio: Prisma.sql`m.modalities @> '{"input":["audio"]}'::jsonb`,
+  "audio-output": Prisma.sql`m.modalities @> '{"output":["audio"]}'::jsonb`,
+  "tool-calling": Prisma.sql`m.capabilities @> '["tool-calling"]'::jsonb`,
+};
+
+export async function catalogCoverage() {
+  const criteria = Object.entries(categoryCriteria) as [CatalogCategory, Prisma.Sql][];
+  const aggregates = criteria.flatMap(([category, condition]) => [
+    Prisma.sql`count(*) FILTER (WHERE ${condition})::int AS ${Prisma.raw(`"${category}"`)}`,
+    Prisma.sql`count(*) FILTER (WHERE ${condition} AND evaluated)::int AS ${Prisma.raw(`"${category}-evaluated"`)}`,
+  ]);
+  const [counts] = await getDb().$queryRaw<Record<string, number>[]>`
+    WITH evidence AS MATERIALIZED (
+      SELECT m.modalities, m.capabilities, ${verifiedEvidence} AS evaluated FROM "ModelVersion" m
+    )
+    SELECT count(*)::int AS total, count(*) FILTER (WHERE evaluated)::int AS evaluated,
+      ${Prisma.join(aggregates)}
+    FROM evidence m
+  `;
+  return {
+    total: counts.total,
+    evaluated: counts.evaluated,
+    categories: criteria.map(([category]) => ({ category, total: counts[category], evaluated: counts[`${category}-evaluated`] })),
+  };
+}
+
+export type CatalogBreakdown = {
+  publishers: { slug: string; name: string; count: number }[];
+  evaluated: number;
+  priced: number;
+  outputPriced: number;
+  anyPriced: number;
+  inputMetadata: number;
+  outputMetadata: number;
+  capabilityMetadata: number;
+  input: Record<string, number>;
+  output: Record<string, number>;
+  capabilities: Record<string, number>;
+};
+
+const modes = ["text", "image", "video", "audio"];
+function metadataCounts(field: Prisma.Sql, values: string[]) {
+  return Prisma.sql`jsonb_build_object(${Prisma.join(values.flatMap(value => [
+    Prisma.sql`${value}::text`,
+    Prisma.sql`count(*) FILTER (WHERE (${field}) @> ${JSON.stringify([value])}::jsonb)::int`,
+  ]))})`;
+}
+
+export async function listModels(query: CatalogQuery, includeBreakdown = false) {
   const { q, family, lab, provider, lifecycle, capability, modality, license, openWeights,
-    minContext, maxInputPrice, availability, sort, page, limit } = query;
-  const priced = sort === "price" || maxInputPrice !== undefined;
+    minContext, maxInputPrice, availability, category, evidence, pricing, sort, page, limit } = query;
+  const priced = sort === "price" || maxInputPrice !== undefined || pricing !== undefined || includeBreakdown;
   const filters = [Prisma.sql`TRUE`];
 
-  if (q) filters.push(Prisma.sql`
-    to_tsvector('simple'::regconfig, regexp_replace(m."canonicalName" || ' ' || m."slug", '[^[:alnum:]]+', ' ', 'g'))
-    @@ plainto_tsquery('simple'::regconfig, regexp_replace(${q}, '[^[:alnum:]]+', ' ', 'g'))`);
+  if (q) {
+    const terms = Prisma.sql`plainto_tsquery('simple'::regconfig, regexp_replace(${q}, '[^[:alnum:]]+', ' ', 'g'))`;
+    filters.push(Prisma.sql`(
+      to_tsvector('simple'::regconfig, regexp_replace(m."canonicalName" || ' ' || m."slug", '[^[:alnum:]]+', ' ', 'g')) @@ ${terms}
+      OR to_tsvector('simple'::regconfig, regexp_replace(f.name || ' ' || f.slug, '[^[:alnum:]]+', ' ', 'g')) @@ ${terms}
+    )`);
+  }
   if (family) filters.push(Prisma.sql`f.slug = ${family}`);
   if (lab) filters.push(Prisma.sql`l.slug = ${lab}`);
   if (lifecycle) filters.push(Prisma.sql`m.lifecycle = ${lifecycle}::"Lifecycle"`);
@@ -125,6 +192,9 @@ export async function listModels(query: CatalogQuery) {
   if (license) filters.push(Prisma.sql`m.license = ${license}`);
   if (capability) filters.push(Prisma.sql`m.capabilities @> ${JSON.stringify([capability])}::jsonb`);
   if (modality) filters.push(Prisma.sql`m.modalities @> ${JSON.stringify({ input: [modality] })}::jsonb`);
+  if (category) filters.push(categoryCriteria[category]);
+  if (evidence) filters.push(evidence === "evaluated" ? verifiedEvidence : Prisma.sql`NOT ${verifiedEvidence}`);
+  if (pricing) filters.push(pricing === "documented" ? Prisma.sql`pricing."usdInput" IS NOT NULL` : Prisma.sql`pricing."usdInput" IS NULL`);
   if (provider || availability) filters.push(Prisma.sql`EXISTS (
     SELECT 1 FROM "Offering" o JOIN "Provider" p ON p.id = o."providerId"
     WHERE o."modelVersionId" = m.id
@@ -134,20 +204,24 @@ export async function listModels(query: CatalogQuery) {
   if (maxInputPrice !== undefined) filters.push(Prisma.sql`pricing."usdInput" <= ${maxInputPrice}::numeric`);
 
   return getDb().$transaction(async (db) => {
-    const [result] = await db.$queryRaw<{ total: number; ids: string[] }[]>`
+    await db.$executeRaw`SET TRANSACTION READ ONLY`;
+    const [result] = await db.$queryRaw<{ total: number; ids: string[]; breakdown?: CatalogBreakdown }[]>`
       WITH filtered AS (
         SELECT m.id, m."canonicalName", m."releaseDate", m."contextTokens", m."createdAt"
           ${priced ? Prisma.sql`, pricing."usdInput"` : Prisma.empty}
+          ${includeBreakdown ? Prisma.sql`, pricing."hasUsdOutput", l.slug AS publisher_slug, l.name AS publisher,
+            m.modalities, m.capabilities, ${verifiedEvidence} AS evaluated` : Prisma.empty}
         FROM "ModelVersion" m
         JOIN "ModelFamily" f ON f.id = m."familyId"
         JOIN "Lab" l ON l.id = f."labId"
         ${priced ? Prisma.sql`
           LEFT JOIN LATERAL (
             SELECT MIN(observation."inputPerMillion") AS "usdInput"
+              ${includeBreakdown ? Prisma.sql`, bool_or(observation."outputPerMillion" IS NOT NULL) AS "hasUsdOutput"` : Prisma.empty}
             FROM "Offering" o
             JOIN "Provider" p ON p.id = o."providerId"
             JOIN LATERAL (
-              SELECT "inputPerMillion" FROM "PriceObservation"
+              SELECT "inputPerMillion", "outputPerMillion" FROM "PriceObservation"
               WHERE "offeringId" = o.id AND currency = 'USD'
               ORDER BY "observedAt" DESC, id DESC LIMIT 1
             ) observation ON TRUE
@@ -159,6 +233,21 @@ export async function listModels(query: CatalogQuery) {
       SELECT (SELECT COUNT(*)::integer FROM filtered) AS total,
         ARRAY(SELECT id FROM filtered ORDER BY ${orders[sort]}, id ASC
           LIMIT ${limit} OFFSET ${(page - 1) * limit}) AS ids
+        ${includeBreakdown ? Prisma.sql`, (SELECT jsonb_build_object(
+          'publishers', (SELECT COALESCE(jsonb_agg(to_jsonb(p) ORDER BY p.count DESC, p.slug), '[]'::jsonb)
+            FROM (SELECT publisher_slug AS slug, publisher AS name, count(*)::int AS count
+              FROM filtered GROUP BY publisher_slug, publisher ORDER BY count DESC, publisher_slug LIMIT 8) p),
+          'evaluated', count(*) FILTER (WHERE evaluated)::int,
+          'priced', count(*) FILTER (WHERE "usdInput" IS NOT NULL)::int,
+          'outputPriced', count(*) FILTER (WHERE "hasUsdOutput")::int,
+          'anyPriced', count(*) FILTER (WHERE "usdInput" IS NOT NULL OR "hasUsdOutput")::int,
+          'inputMetadata', count(*) FILTER (WHERE jsonb_typeof(modalities->'input') = 'array' AND modalities->'input' <> '[]'::jsonb)::int,
+          'outputMetadata', count(*) FILTER (WHERE jsonb_typeof(modalities->'output') = 'array' AND modalities->'output' <> '[]'::jsonb)::int,
+          'capabilityMetadata', count(*) FILTER (WHERE jsonb_typeof(capabilities) = 'array')::int,
+          'input', ${metadataCounts(Prisma.sql`modalities->'input'`, modes)},
+          'output', ${metadataCounts(Prisma.sql`modalities->'output'`, modes)},
+          'capabilities', ${metadataCounts(Prisma.sql`capabilities`, ["tool-calling", "structured-outputs"])}
+        ) FROM filtered) AS breakdown` : Prisma.empty}
     `;
     const rows = result.ids.length ? await db.modelVersion.findMany({
       where: { id: { in: result.ids } }, include: summaryInclude,
@@ -167,6 +256,7 @@ export async function listModels(query: CatalogQuery) {
     return {
       data: result.ids.map((id) => summary(byId.get(id)!)),
       meta: { page, limit, total: result.total, hasMore: page * limit < result.total },
+      ...(result.breakdown ? { breakdown: result.breakdown } : {}),
     };
   }, { isolationLevel: "RepeatableRead" });
 }

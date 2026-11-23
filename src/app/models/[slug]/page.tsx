@@ -1,3 +1,4 @@
+import { PageHeading, PageShell } from "@/components/editorial-page";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
@@ -19,25 +20,21 @@ const modelForSlug = cache(async (value: string) => {
 
 export async function generateMetadata({ params }: PageProps<"/models/[slug]">): Promise<Metadata> {
   const model = await modelForSlug((await params).slug);
-  return { title: model ? `${model.name} | Ryhme` : "Model details | Ryhme" };
+  return { title: model ? `${model.name} | Rhyme` : "Model details | Rhyme" };
 }
 
 export default async function ModelPage({ params }: PageProps<"/models/[slug]">) {
   const model = await modelForSlug((await params).slug);
   if (!model) notFound();
   return (
-    <main id="main-content" className="frame page">
-      <Link className="text-link text-sm" href="/models">← Model catalog</Link>
-      <div className="page-heading flex flex-wrap items-end justify-between gap-4">
-        <div>
+    <PageShell>
+      <PageHeading title={model.name} label={<Link href="/models">Model catalog</Link>}
+        tools={<div className="editorial-actions"><CompareToggle id={model.id} name={model.name} /></div>}>
           <p><Link className="text-link" href={`/labs/${model.family.lab.slug}`}>{model.family.lab.name}</Link> / {model.family.name}</p>
-          <h1>{model.name}</h1>
           <span className="chip mt-3 inline-block">{lifecycles[model.lifecycle]}</span>
-          {model.recentlyAdded && <span className="chip ml-2 inline-block">New to Ryhme</span>}
-        </div>
-        <CompareToggle id={model.id} name={model.name} />
-      </div>
-      <div className="detail-grid">
+          {model.recentlyAdded && <span className="chip ml-2 inline-block">New to Rhyme</span>}
+      </PageHeading>
+      <div className="detail-grid editorial-report">
         <section className="panel" aria-labelledby="specs">
           <h2 id="specs">Specifications</h2>
           <dl className="fact-list">
@@ -51,7 +48,7 @@ export default async function ModelPage({ params }: PageProps<"/models/[slug]">)
             <div><dt>Open weights</dt><dd>{model.openWeights === null ? "Unknown" : model.openWeights ? "Yes" : "No"}</dd></div>
           </dl>
         </section>
-        <section className="panel" aria-labelledby="versions">
+        <section className="studio-selection version-evidence" aria-labelledby="versions">
           <h2 id="versions">Versions in this family</h2>
           <ul className="mt-3 grid gap-3">
             {model.versions.map((version) => <li key={version.id} className="flex flex-wrap justify-between gap-2">
@@ -61,6 +58,23 @@ export default async function ModelPage({ params }: PageProps<"/models/[slug]">)
               <span className="muted">{date(version.releaseDate)}</span>
             </li>)}
           </ul>
+        </section>
+        <section className="panel detail-wide" aria-labelledby="benchmarks">
+          <h2 id="benchmarks">Benchmark evidence</h2>
+          {model.verifiedResults === 0 && <p className="muted mt-2">Unranked · No verified benchmark scores for this version.</p>}
+          {model.results.length > 0 &&
+            <ul className="detail-list">
+              {model.results.map((result) => <li key={result.id}>
+                <h3>{result.benchmark.name}</h3>
+                <p className="mt-1"><strong>{result.score.toString()}{result.benchmark.unit === "%" ? "%" : ` ${result.benchmark.unit}`}</strong> · {result.benchmark.metricName}</p>
+                <p className="muted">{result.benchmark.direction === "HIGHER" ? "Higher is better" : "Lower is better"} · Evaluation date {date(result.evaluatedAt)}</p>
+                <p className="muted">{evaluationOriginLabel[result.evaluationOrigin]}
+                  {result.evaluationConfig && ` / ${result.evaluationConfig}`}</p>
+                {result.publishedAt && <p className="muted">Archive published {date(result.publishedAt)}</p>}
+                <p className="muted mt-2">{result.benchmark.methodology}</p>
+                <p className="mt-2"><SourceLink url={result.sourceUrl}>{result.source.name} result</SourceLink> · {result.verifiedStatus.toLowerCase()} source attribution</p>
+              </li>)}
+            </ul>}
         </section>
         <section className="panel detail-wide" aria-labelledby="offerings">
           <h2 id="offerings">Provider offerings</h2>
@@ -85,23 +99,6 @@ export default async function ModelPage({ params }: PageProps<"/models/[slug]">)
               </li>)}
             </ul>}
         </section>
-        <section className="panel" aria-labelledby="benchmarks">
-          <h2 id="benchmarks">Benchmark evidence</h2>
-          {model.verifiedResults === 0 && <p className="muted mt-2">Unranked · No verified benchmark scores for this version.</p>}
-          {model.results.length > 0 &&
-            <ul className="detail-list">
-              {model.results.map((result) => <li key={result.id}>
-                <h3>{result.benchmark.name}</h3>
-                <p className="mt-1"><strong>{result.score.toString()}{result.benchmark.unit === "%" ? "%" : ` ${result.benchmark.unit}`}</strong> · {result.benchmark.metricName}</p>
-                <p className="muted">{result.benchmark.direction === "HIGHER" ? "Higher is better" : "Lower is better"} · Evaluation date {date(result.evaluatedAt)}</p>
-                <p className="muted">{evaluationOriginLabel[result.evaluationOrigin]}
-                  {result.evaluationConfig && ` / ${result.evaluationConfig}`}</p>
-                {result.publishedAt && <p className="muted">Archive published {date(result.publishedAt)}</p>}
-                <p className="muted mt-2">{result.benchmark.methodology}</p>
-                <p className="mt-2"><SourceLink url={result.sourceUrl}>{result.source.name} result</SourceLink> · {result.verifiedStatus.toLowerCase()} source attribution</p>
-              </li>)}
-            </ul>}
-        </section>
         <section className="panel" aria-labelledby="sources">
           <h2 id="sources">Sources and freshness</h2>
           {model.identities.length > 0 && <ul className="detail-list">
@@ -121,6 +118,6 @@ export default async function ModelPage({ params }: PageProps<"/models/[slug]">)
         </section>
       </div>
       <PriceHistory models={[model]} />
-    </main>
+    </PageShell>
   );
 }

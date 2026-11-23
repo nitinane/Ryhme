@@ -11,20 +11,22 @@ export type BenchmarkPoint = {
 
 export function scoreLabel(score: string, unit: string) {
   const value = score.replace(/(\.\d*?[1-9])0+$|\.0+$/, "$1");
-  return unit === "%" ? `${value}%` : `${value} ${unit}`;
+  return unit && unit !== "%" ? `${value} ${unit}` : value + unit;
 }
 
 export function scoreScale(points: BenchmarkPoint[], unit: string) {
   const values = points.map(({ score }) => Number(score));
+  const percentage = unit === "%" && values.every(value => value >= 0 && value <= 100);
   const min = Math.min(0, ...values);
-  const max = Math.max(unit === "%" ? 100 : 0, ...values);
+  const max = Math.max(percentage ? 100 : 0, ...values);
   const position = (value: number) => 100 * (value - min) / (max - min || 1);
-  return { min, max, position };
+  const description = percentage ? "Percentage scale, 0 to 100%" : "Comparative scale includes zero and the plotted scores";
+  return { min, max, position, description };
 }
 
 const labColors: Record<string, string> = {
-  openai: "#008477", anthropic: "#bd5939", google: "#386bda", meta: "#5264ca",
-  mistral: "#b46d14", qwen: "#8b49bd", alibaba: "#8b49bd", deepseek: "#3475bc",
+  openai: "#00a979", anthropic: "#c56d46", google: "#2646a4", meta: "#765299",
+  mistral: "#f6b720", qwen: "#ff705c", alibaba: "#ff705c", deepseek: "#3475bc",
 };
 const labAliases: Record<string, string> = { "google-deepmind": "google", "meta-llama": "meta", mistralai: "mistral" };
 const otherColors = ["#a34579", "#537834", "#95633f", "#008197", "#775ac0", "#b34c66"];

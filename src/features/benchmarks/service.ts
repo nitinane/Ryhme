@@ -1,6 +1,7 @@
 import "server-only";
 import { type EvaluationOrigin, Prisma } from "@/generated/prisma/client";
 import { getDb } from "@/lib/db/client";
+import { categoryCriteria } from "@/features/catalog/services/models";
 import { rankingCategories } from "./categories";
 import { scoreDirection, type RankingQuery } from "./query";
 
@@ -84,6 +85,7 @@ export async function rankings(query: RankingQuery, featured = false) {
       FROM "ModelVersion" m JOIN "ModelFamily" f ON f.id = m."familyId"
       JOIN "Lab" l ON l.id = f."labId"
       WHERE TRUE ${providerFilter}
+        ${query.catalogCategory ? Prisma.sql`AND ${categoryCriteria[query.catalogCategory]}` : Prisma.empty}
         ${query.q ? Prisma.sql`AND strpos(lower(m."canonicalName" || ' ' || m.slug || ' ' || l.name), lower(${query.q})) > 0` : Prisma.empty}
         ${query.lab ? Prisma.sql`AND l.slug = ${query.lab}` : Prisma.empty}
         ${query.model ? Prisma.sql`AND m.slug = ${query.model}` : Prisma.empty}

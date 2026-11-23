@@ -60,7 +60,7 @@ export function CostCalculator({ models }: { models: ModelOption[] }) {
   }
 
   return (
-    <section aria-labelledby="calculator" className="panel mt-6">
+    <section aria-labelledby="calculator" className="panel cost-estimator mt-6">
       <h2 id="calculator">Token cost estimator</h2>
       <p className="muted mt-2">Use historical rates for the same workload. Estimates exclude caching, batch discounts, taxes, and tiering.</p>
       <form onSubmit={calculate} onChange={() => { setEstimates([]); setError(""); }} className="mt-4">

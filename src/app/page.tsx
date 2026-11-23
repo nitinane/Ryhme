@@ -1,12 +1,11 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import Form from "next/form";
+import { EditorialSearch, PageHeading } from "@/components/editorial-page";
 import { homeCatalog, homeTokenRates } from "@/features/catalog/services/home";
 import { date, number, utcTime } from "@/features/catalog/presentation";
 import { SourceLink } from "@/features/catalog/components/source-link";
 import { StudioAnalysis } from "./studio-analysis";
 import { StudioSelector } from "./studio-selector";
-import "./studio.css";
 import { rankingFilters } from "@/features/benchmarks/components/ranking-controls";
 import { evaluationOriginLabel } from "@/features/benchmarks/categories";
 import { categoryName, rankingQuery, type RankingQuery } from "@/features/benchmarks/query";
@@ -72,7 +71,8 @@ async function CatalogOverview({ query }: { query: RankingQuery }) {
           <Link href={`/rankings?${params}`} className="studio-jump">Full leaderboard <span aria-hidden="true">↗</span></Link>
         </div>
         <StudioAnalysis key={cohort.id + JSON.stringify(query)} title={benchmark.name} metric={benchmark.metricName} unit={benchmark.unit}
-          direction={benchmark.direction} rows={result.data.slice(0, leaderboardLimit)} rates={rates} filteredCount={result.meta.total}>
+          direction={benchmark.direction} rows={result.data.slice(0, leaderboardLimit)} rates={rates} filteredCount={result.meta.total}
+          evaluationDate={date(cohort.evaluatedAt)}>
           <details className="studio-method" open>
             <summary>Source &amp; methodology <span>{evaluationOriginLabel[cohort.evaluationOrigin]}</span></summary>
             <div><p>{benchmark.methodology}</p><p>Evidence observed {date(cohort.observedAt)}</p>
@@ -92,16 +92,9 @@ export default async function Home({ searchParams }: PageProps<"/">) {
   const query = { ...(parsed.success ? parsed.data : rankingQuery.parse({})), page: 1, limit: leaderboardLimit, sort: "best" as const };
   return (
     <main id="main-content" tabIndex={-1} className="frame studio">
-      <header className="studio-intro">
-        <div className="studio-editorial"><p className="studio-label">AI model research</p><h1>Model performance, <em>in context.</em></h1>
-          <p>Compare AI models using published benchmarks and API prices.</p></div>
-        <div className="home-tools">
-          <Form action="/models" className="home-search">
-            <input name="q" type="search" aria-label="Search model catalog" placeholder="Search model catalog" maxLength={120} />
-            <button type="submit" className="button primary">Find models</button>
-          </Form>
-        </div>
-      </header>
+      <PageHeading label="AI model research" title="Model performance," accent="in context." tools={<EditorialSearch />}>
+        <p>Compare AI models using published benchmarks and API prices.</p>
+      </PageHeading>
       <Suspense fallback={<p className="studio-loading" role="status">Loading benchmark data…</p>}>
         <CatalogOverview query={query} />
       </Suspense>

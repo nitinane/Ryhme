@@ -38,5 +38,5 @@ Admin role only: catalog health, recent ingestion runs, manual sync button with 
 ## 11. Responsive/accessibility states
 Desktop navigation sidebar/topbar; mobile drawer; mobile search/filter drawer; accessible dialogs; Escape closes overlays; focus returns to trigger; all icon buttons labeled; charts have text equivalents; no color-only status; reduced motion. Aim WCAG 2.2 AA. Keyboard test: global search, filtering, selecting comparison, reading model page, switching rankings.
 
-## 12. Demo walkthrough (90–180 seconds)
+## 12. Demo walkthrough
 Landing/search -> filter -> detail with provenance -> add 3 models -> compare/cost calculator -> category leaderboard -> lab/provider differentiation -> optional advisor -> submission links. Seed records must make this journey reproducible; don't depend on live API calls during recording.

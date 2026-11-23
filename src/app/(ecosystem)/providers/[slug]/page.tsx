@@ -1,3 +1,4 @@
+import { EditorialWorkspace, PageHeading, PageShell } from "@/components/editorial-page";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
@@ -13,7 +14,7 @@ export async function generateMetadata({ params }: PageProps<"/providers/[slug]"
   const value = (await params).slug;
   const provider = slug.safeParse(value).success
     ? await getDb().provider.findUnique({ where: { slug: value }, select: { name: true } }) : null;
-  return { title: provider ? `${provider.name} provider | Ryhme` : "API provider | Ryhme" };
+  return { title: provider ? `${provider.name} provider | Rhyme` : "API provider | Rhyme" };
 }
 
 export default async function ProviderPage({ params, searchParams }: PageProps<"/providers/[slug]">) {
@@ -21,16 +22,22 @@ export default async function ProviderPage({ params, searchParams }: PageProps<"
   if (!slug.safeParse(value).success) notFound();
   const path = `/providers/${value}`;
   const input = providerQuery.safeParse(raw);
-  if (!input.success) return <main id="main-content" className="frame page"><h1>Provider offerings</h1><InvalidDirectoryFilters path={path} /></main>;
+  if (!input.success) return <PageShell><PageHeading title="Provider offerings" /><InvalidDirectoryFilters path={path} /></PageShell>;
   const provider = await findProvider(value, input.data);
   if (!provider) notFound();
-  return <main id="main-content" className="frame page">
-    <Link className="text-link" href="/providers">← API providers</Link>
-    <div className="page-heading"><h1>{provider.name}</h1><p>Documented API offerings</p>
+  return <PageShell>
+    <PageHeading title={provider.name} label={<Link href="/providers">API providers</Link>}
+      tools={<DirectoryFilters action={path} query={input.data} provider searchLabel="Search offerings" />}>
+      <p>Documented API offerings</p>
+    </PageHeading>
+    <EditorialWorkspace title="Offerings" aside={<section className="studio-selection">
+      <h2>Provider evidence</h2><dl><div><dt>Matching offers</dt>
+        <dd role="status">{provider.meta.total} {provider.meta.total === 1 ? "offering" : "offerings"}</dd></div></dl>
       {provider.website && <SourceLink url={provider.website}>Official provider website</SourceLink>}
-    </div>
-    <DirectoryFilters action={path} query={input.data} provider searchLabel="Search offerings" />
-    <p className="muted my-4" role="status">{provider.meta.total} {provider.meta.total === 1 ? "offering" : "offerings"}</p>
+      {provider.sources.length > 0 && <ul className="studio-source-links mt-2">{provider.sources.map(source => (
+        <li key={source.id}><SourceLink url={source.sourceUrl}>Provider identity source</SourceLink> · Observed {date(source.observedAt)}</li>
+      ))}</ul>}
+    </section>}>
     {provider.offerings.length ? <ul className="directory-grid">{provider.offerings.map((offer) => {
       const price = offer.prices[0];
       return (
@@ -52,8 +59,6 @@ export default async function ProviderPage({ params, searchParams }: PageProps<"
       );
     })}</ul> : <p className="panel">No offerings match this search or page.</p>}
     <DirectoryPages path={path} raw={raw} meta={provider.meta} />
-    {provider.sources.length > 0 && <section className="panel mt-5"><h2>Sources</h2><ul className="detail-list">
-      {provider.sources.map((source) => <li key={source.id}><SourceLink url={source.sourceUrl}>Provider identity source</SourceLink> · Observed {date(source.observedAt)}</li>)}
-    </ul></section>}
-  </main>;
+    </EditorialWorkspace>
+  </PageShell>;
 }
