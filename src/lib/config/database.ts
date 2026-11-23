@@ -8,8 +8,15 @@ export const databaseEnv = z.object({
   VERCEL: z.string().optional(),
   VERCEL_ENV: z.string().optional(),
   VERCEL_TARGET_ENV: z.string().optional(),
-}).refine((env) => env.VERCEL_ENV !== "production" && env.VERCEL_TARGET_ENV !== "production"
-  && (env.VERCEL !== "1" || env.VERCEL_ENV === "preview"), "Vercel database access is scoped to Preview.");
+  RYHME_ALLOW_PRODUCTION_DB: z.string().optional(),
+}).refine((env) => {
+  if (env.VERCEL_ENV === "production" || env.VERCEL_TARGET_ENV === "production") {
+    return env.VERCEL === "1" && env.VERCEL_ENV === "production"
+      && (env.VERCEL_TARGET_ENV === undefined || env.VERCEL_TARGET_ENV === "production")
+      && env.RYHME_ALLOW_PRODUCTION_DB === "1";
+  }
+  return env.VERCEL !== "1" || env.VERCEL_ENV === "preview";
+}, "Vercel database access requires Preview or an explicitly enabled Production deployment.");
 
 export function databaseConnectionString(env: Record<string, string | undefined> = process.env) {
   const result = databaseEnv.safeParse(env);

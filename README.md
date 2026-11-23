@@ -75,6 +75,8 @@ Playwright uses `PLAYWRIGHT_DATABASE_URL` for its own app servers and verifies t
 
 For hosting, follow the [Preview handoff](09_DEPLOYMENT_AND_TESTING_RUNBOOK.md#hosted-verification-handoff). Use a pooled runtime URL in Preview and a separate direct connection for approved migrations.
 
+For an approved Vercel Production deployment, set `RYHME_ALLOW_PRODUCTION_DB=1` in Production only and set `DATABASE_URL` to the verified catalog's pooled SELECT-only connection. Keep system environment variables enabled. Use a fresh deployment to apply the settings, then verify `/api/health`, the catalog count, and populated leaderboards.
+
 ## Catalog and comparison
 
 Open `/models` or press Ctrl+K (Cmd+K on macOS). PostgreSQL indexes support model-name and slug term search and structured filters. The catalog URL preserves filters, sort, and page. For example, `/models?q=GPT-4.1&capability=tool-calling&sort=context&limit=1`.

@@ -11,6 +11,18 @@ it("blocks the development URL in Vercel Production and requires Preview metadat
 });
 
 describe("database configuration", () => {
+  it("allows explicitly enabled Vercel Production while rejecting conflicting deployment metadata", () => {
+    const env = { DATABASE_URL: "postgresql://reader@db.example/ryhme", VERCEL: "1",
+      VERCEL_ENV: "production", VERCEL_TARGET_ENV: "production" };
+    expect(databaseEnv.safeParse(env).success).toBe(false);
+    const enabled = { ...env, RYHME_ALLOW_PRODUCTION_DB: "1" };
+    expect(databaseConnectionString(enabled)).toBe(env.DATABASE_URL);
+    expect(databaseEnv.safeParse({ ...enabled, VERCEL_TARGET_ENV: undefined }).success).toBe(true);
+    expect(databaseEnv.safeParse({ ...enabled, VERCEL_ENV: "preview" }).success).toBe(false);
+    expect(databaseEnv.safeParse({ ...enabled, VERCEL_TARGET_ENV: "preview" }).success).toBe(false);
+    expect(databaseEnv.safeParse({ ...enabled, VERCEL: undefined }).success).toBe(false);
+  });
+
   it("accepts PostgreSQL and treats an empty direct URL as unset", () => {
     const url = "postgresql://local:local@127.0.0.1:5432/ryhme";
     expect(databaseConnectionString({ DATABASE_URL: url, DIRECT_URL: "" })).toBe(url);
