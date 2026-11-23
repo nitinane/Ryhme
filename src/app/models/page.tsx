@@ -2,15 +2,28 @@ import { EditorialSearch, PageHeading, PageNotice, PageShell } from "@/component
 import Form from "next/form";
 import Link from "next/link";
 import type { Metadata } from "next";
+import { unstable_cache } from "next/cache";
+import { databaseConnectionString } from "@/lib/config/database";
 import { SourceLink } from "@/features/catalog/components/source-link";
 import { FilterPanel } from "@/features/catalog/components/filter-panel";
 import { CategoryCoverage } from "@/features/catalog/components/category-coverage";
 import { CompareToggle } from "@/features/comparison/components/selection";
-import { catalogCoverage, catalogOptions, listModels } from "@/features/catalog/services/models";
-import { capabilities, catalogCategories, catalogQuery, evidenceStatuses, lifecycles, pricingStatuses } from "@/features/catalog/schemas/query";
+import { catalogOptions, listModels } from "@/features/catalog/services/models";
+import { capabilities, catalogCategories, catalogQuery, evidenceStatuses, lifecycles, pricingStatuses, type CatalogQuery } from "@/features/catalog/schemas/query";
 import { availability, capabilityNames, number, utcTime } from "@/features/catalog/presentation";
 
 export const metadata: Metadata = { title: "Model catalog | Rhyme" };
+
+const cacheKey = ["catalog-page", process.env.VERCEL_DEPLOYMENT_ID ?? "local"];
+const catalogRevalidation = { revalidate: 300 };
+const cachedOptions = unstable_cache(catalogOptions, [...cacheKey, "options"], catalogRevalidation);
+const cachedModels = unstable_cache((query: CatalogQuery) => listModels(query, Boolean(query.category)),
+  [...cacheKey, "results"], catalogRevalidation);
+
+function CatalogTime({ value }: { value: Date | string }) {
+  const timestamp = new Date(value);
+  return <time dateTime={timestamp.toISOString()}>{utcTime(timestamp)}</time>;
+}
 
 const sorts = {
   discovered: "Recently discovered",
@@ -30,7 +43,12 @@ export default async function ModelsPage({ searchParams }: PageProps<"/models">)
     </PageNotice>;
   }
   const query = parsed.data;
-  const [{ data, meta, breakdown }, options, coverage] = await Promise.all([listModels(query, Boolean(query.category)), catalogOptions(), catalogCoverage()]);
+  databaseConnectionString();
+  const [{ data, meta, breakdown }, options] = await Promise.all([
+    cachedModels(query),
+    cachedOptions(),
+  ]);
+  const { coverage } = options;
   const selectedCoverage = coverage.categories.find(({ category }) => category === query.category) ?? coverage;
   const filterLabels = {
     q: "Search", family: "Family", lab: "Publisher", provider: "Provider", capability: "Capability", modality: "Input",
@@ -74,7 +92,7 @@ export default async function ModelsPage({ searchParams }: PageProps<"/models">)
         </EditorialSearch>
       }>
         <p className="text-sm">Last successful OpenRouter sync {syncedAt
-          ? <><time dateTime={syncedAt.toISOString()}>{utcTime(syncedAt)}</time>{options.syncOverdue && " · Sync overdue"}</>
+          ? <><CatalogTime value={syncedAt} />{options.syncOverdue && " · Sync overdue"}</>
           : "· Awaiting first scheduled run"}</p>
       </PageHeading>
       <div className="catalog-workspace">
@@ -207,9 +225,9 @@ export default async function ModelsPage({ searchParams }: PageProps<"/models">)
                       {statuses.join(" / ") || "Unknown"}
                       {attributed && <details className="catalog-source">
                         <summary>Evidence</summary>
-                        <span>{attributed.provider.name} · {lifecycles[model.lifecycle]} · Updated <time dateTime={model.updatedAt.toISOString()}>{utcTime(model.updatedAt)}</time></span>
+                        <span>{attributed.provider.name} · {lifecycles[model.lifecycle]} · Updated <CatalogTime value={model.updatedAt} /></span>
                         <SourceLink url={attributed.sourceUrl}>{attributed.source.name} offering source</SourceLink>
-                        {price && <span><SourceLink url={price.sourceUrl}>Price source</SourceLink> · Observed <time dateTime={price.observedAt.toISOString()}>{utcTime(price.observedAt)}</time></span>}
+                        {price && <span><SourceLink url={price.sourceUrl}>Price source</SourceLink> · Observed <CatalogTime value={price.observedAt} /></span>}
                       </details>}
                     </td>
                     <td><CompareToggle id={model.id} name={model.name} /></td>

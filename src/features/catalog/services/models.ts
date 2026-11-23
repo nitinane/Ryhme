@@ -128,24 +128,41 @@ export const categoryCriteria: Record<CatalogCategory, Prisma.Sql> = {
   "tool-calling": Prisma.sql`m.capabilities @> '["tool-calling"]'::jsonb`,
 };
 
-export async function catalogCoverage() {
+export async function catalogOptions() {
   const criteria = Object.entries(categoryCriteria) as [CatalogCategory, Prisma.Sql][];
   const aggregates = criteria.flatMap(([category, condition]) => [
     Prisma.sql`count(*) FILTER (WHERE ${condition})::int AS ${Prisma.raw(`"${category}"`)}`,
     Prisma.sql`count(*) FILTER (WHERE ${condition} AND evaluated)::int AS ${Prisma.raw(`"${category}-evaluated"`)}`,
   ]);
-  const [counts] = await getDb().$queryRaw<Record<string, number>[]>`
+  type Option = { slug: string; name: string };
+  const [options] = await getDb().$queryRaw<{
+    counts: Record<string, number>; families: Option[]; labs: Option[]; providers: Option[];
+    licenses: string[]; catalogSyncedAt: Date | null;
+  }[]>`
     WITH evidence AS MATERIALIZED (
       SELECT m.modalities, m.capabilities, ${verifiedEvidence} AS evaluated FROM "ModelVersion" m
+    ), coverage AS (
+      SELECT count(*)::int AS total, count(*) FILTER (WHERE evaluated)::int AS evaluated,
+        ${Prisma.join(aggregates)}
+      FROM evidence m
     )
-    SELECT count(*)::int AS total, count(*) FILTER (WHERE evaluated)::int AS evaluated,
-      ${Prisma.join(aggregates)}
-    FROM evidence m
+    SELECT to_jsonb(coverage) AS counts,
+      (SELECT COALESCE(jsonb_agg(jsonb_build_object('slug', slug, 'name', name) ORDER BY name, slug), '[]') FROM "ModelFamily") AS families,
+      (SELECT COALESCE(jsonb_agg(jsonb_build_object('slug', slug, 'name', name) ORDER BY name, slug), '[]') FROM "Lab") AS labs,
+      (SELECT COALESCE(jsonb_agg(jsonb_build_object('slug', slug, 'name', name) ORDER BY name, slug), '[]') FROM "Provider") AS providers,
+      (SELECT COALESCE(jsonb_agg(DISTINCT license ORDER BY license), '[]') FROM "ModelVersion" WHERE license <> '') AS licenses,
+      (SELECT "catalogSyncedAt" FROM "DataSource" WHERE id = 'openrouter') AS "catalogSyncedAt"
+    FROM coverage
   `;
+  const { counts, catalogSyncedAt, ...filters } = options;
   return {
-    total: counts.total,
-    evaluated: counts.evaluated,
-    categories: criteria.map(([category]) => ({ category, total: counts[category], evaluated: counts[`${category}-evaluated`] })),
+    ...filters, catalogSyncedAt,
+    syncOverdue: catalogSyncedAt !== null && Date.now() - +catalogSyncedAt > 86_400_000,
+    coverage: {
+      total: counts.total,
+      evaluated: counts.evaluated,
+      categories: criteria.map(([category]) => ({ category, total: counts[category], evaluated: counts[`${category}-evaluated`] })),
+    },
   };
 }
 
@@ -259,19 +276,4 @@ export async function listModels(query: CatalogQuery, includeBreakdown = false) 
       ...(result.breakdown ? { breakdown: result.breakdown } : {}),
     };
   }, { isolationLevel: "RepeatableRead" });
-}
-
-export async function catalogOptions() {
-  const db = getDb();
-  const [families, labs, providers, licenses, source] = await Promise.all([
-    db.modelFamily.findMany({ select: { slug: true, name: true }, orderBy: { name: "asc" } }),
-    db.lab.findMany({ select: { slug: true, name: true }, orderBy: { name: "asc" } }),
-    db.provider.findMany({ select: { slug: true, name: true }, orderBy: { name: "asc" } }),
-    db.modelVersion.findMany({
-      select: { license: true }, distinct: ["license"], where: { license: { not: null } }, orderBy: { license: "asc" },
-    }),
-    db.dataSource.findUnique({ where: { id: "openrouter" }, select: { catalogSyncedAt: true } }),
-  ]);
-  const catalogSyncedAt = source?.catalogSyncedAt ?? null;
-  return { families, labs, providers, catalogSyncedAt, syncOverdue: catalogSyncedAt !== null && Date.now() - +catalogSyncedAt > 86_400_000, licenses: licenses.flatMap(({ license }) => license ? [license] : []) };
 }
